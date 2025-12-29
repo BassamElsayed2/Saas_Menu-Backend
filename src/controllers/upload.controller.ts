@@ -6,6 +6,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger';
+import { getImageUrl } from '../utils/urlHelper';
 
 // Allowed image types
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
@@ -33,6 +34,7 @@ export async function ensureUploadDirectories(): Promise<void> {
     path.join(process.cwd(), 'uploads', 'logos'),
     path.join(process.cwd(), 'uploads', 'menu-items'),
     path.join(process.cwd(), 'uploads', 'ads'),
+    path.join(process.cwd(), 'uploads', 'categories'),
   ];
 
   for (const dir of dirs) {
@@ -52,8 +54,8 @@ export async function uploadImage(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const { type = 'menu-items' } = req.body; // 'logos', 'menu-items', 'ads'
-    const allowedTypes = ['logos', 'menu-items', 'ads'];
+    const { type = 'menu-items' } = req.body; // 'logos', 'menu-items', 'ads', 'categories'
+    const allowedTypes = ['logos', 'menu-items', 'ads', 'categories'];
 
     if (!allowedTypes.includes(type)) {
       res.status(400).json({ error: 'Invalid upload type' });
@@ -97,6 +99,12 @@ export async function uploadImage(req: Request, res: Response): Promise<void> {
         fit: 'inside',
         withoutEnlargement: true,
       });
+    } else if (type === 'categories') {
+      // Categories: 300x300, maintain aspect ratio
+      sharpInstance = sharpInstance.resize(300, 300, {
+        fit: 'inside',
+        withoutEnlargement: true,
+      });
     }
 
     // Convert to WebP and save
@@ -107,8 +115,9 @@ export async function uploadImage(req: Request, res: Response): Promise<void> {
     // Get file size
     const stats = await fs.stat(filePath);
 
-    // Return file URL
-    const fileUrl = `/uploads/${type}/${filename}`;
+    // Return file URL - use helper for dynamic URL generation
+    const relativePath = `/uploads/${type}/${filename}`;
+    const fileUrl = getImageUrl(relativePath)!;
 
     logger.info(`File uploaded: ${fileUrl} (${stats.size} bytes)`);
 
@@ -131,7 +140,7 @@ export async function deleteImage(req: Request, res: Response): Promise<void> {
     const { filename } = req.params;
     const { type = 'menu-items' } = req.query;
 
-    const allowedTypes = ['logos', 'menu-items', 'ads'];
+    const allowedTypes = ['logos', 'menu-items', 'ads', 'categories'];
 
     if (!allowedTypes.includes(type as string)) {
       res.status(400).json({ error: 'Invalid upload type' });
@@ -168,7 +177,7 @@ export async function getImageInfo(req: Request, res: Response): Promise<void> {
     const { filename } = req.params;
     const { type = 'menu-items' } = req.query;
 
-    const allowedTypes = ['logos', 'menu-items', 'ads'];
+    const allowedTypes = ['logos', 'menu-items', 'ads', 'categories'];
 
     if (!allowedTypes.includes(type as string)) {
       res.status(400).json({ error: 'Invalid upload type' });
@@ -187,6 +196,9 @@ export async function getImageInfo(req: Request, res: Response): Promise<void> {
       const stats = await fs.stat(filePath);
       const metadata = await sharp(filePath).metadata();
 
+      // Return full URL using helper
+      const relativePath = `/uploads/${type}/${filename}`;
+      
       res.json({
         filename,
         size: stats.size,
@@ -194,7 +206,7 @@ export async function getImageInfo(req: Request, res: Response): Promise<void> {
         height: metadata.height,
         format: metadata.format,
         createdAt: stats.birthtime,
-        url: `/uploads/${type}/${filename}`,
+        url: getImageUrl(relativePath),
       });
     } catch (error) {
       res.status(404).json({ error: 'File not found' });

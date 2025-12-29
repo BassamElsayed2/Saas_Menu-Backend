@@ -1,56 +1,69 @@
-import { Request, Response } from 'express';
-import { getPool, sql } from '../config/database';
-import { logger } from '../utils/logger';
+import { Request, Response } from "express";
+import { getPool, sql } from "../config/database";
+import { logger } from "../utils/logger";
+import { normalizeImageUrls } from "../utils/urlHelper";
 
 // Get all categories for a menu
-export async function getCategories(req: Request, res: Response): Promise<void> {
+export async function getCategories(
+  req: Request,
+  res: Response
+): Promise<void> {
   try {
     const userId = req.user!.userId;
     const { menuId } = req.params;
-    const { locale = 'ar' } = req.query;
+    const { locale = "ar" } = req.query;
 
     const pool = await getPool();
 
     // Verify menu ownership
     const menuCheck = await pool
       .request()
-      .input('menuId', sql.Int, parseInt(menuId))
-      .input('userId', sql.Int, userId)
-      .query('SELECT id FROM Menus WHERE id = @menuId AND userId = @userId');
+      .input("menuId", sql.Int, parseInt(menuId))
+      .input("userId", sql.Int, userId)
+      .query("SELECT id FROM Menus WHERE id = @menuId AND userId = @userId");
 
     if (menuCheck.recordset.length === 0) {
-      res.status(404).json({ error: 'Menu not found or access denied' });
+      res.status(404).json({ error: "Menu not found or access denied" });
       return;
     }
 
-    // Get categories with translations
+    // Get categories with translations (all languages for forms and display)
     const result = await pool
       .request()
-      .input('menuId', sql.Int, parseInt(menuId))
-      .input('locale', sql.NVarChar, locale as string)
-      .query(`
+      .input("menuId", sql.Int, parseInt(menuId))
+      .input("locale", sql.NVarChar, locale as string).query(`
         SELECT 
           c.id,
           c.image,
           c.sortOrder,
           c.isActive,
           c.createdAt,
-          ct.name
+          ct.name,
+          ar.name as nameAr,
+          en.name as nameEn
         FROM Categories c
         LEFT JOIN CategoryTranslations ct ON c.id = ct.categoryId AND ct.locale = @locale
+        LEFT JOIN CategoryTranslations ar ON c.id = ar.categoryId AND ar.locale = 'ar'
+        LEFT JOIN CategoryTranslations en ON c.id = en.categoryId AND en.locale = 'en'
         WHERE c.menuId = @menuId
         ORDER BY c.sortOrder ASC, c.createdAt DESC
       `);
 
-    res.json({ categories: result.recordset });
+    // Normalize image URLs to absolute paths
+    const categories = normalizeImageUrls(result.recordset);
+
+    res.json({ categories });
   } catch (error) {
-    logger.error('Get categories error:', error);
-    res.status(500).json({ error: 'Failed to get categories' });
+    logger.error("Get categories error:", error);
+    res.status(500).json({ error: "Failed to get categories" });
   }
 }
 
 // Get category by ID with both translations
-export async function getCategoryById(req: Request, res: Response): Promise<void> {
+export async function getCategoryById(
+  req: Request,
+  res: Response
+): Promise<void> {
   try {
     const userId = req.user!.userId;
     const { menuId, categoryId } = req.params;
@@ -60,21 +73,20 @@ export async function getCategoryById(req: Request, res: Response): Promise<void
     // Verify menu ownership
     const menuCheck = await pool
       .request()
-      .input('menuId', sql.Int, parseInt(menuId))
-      .input('userId', sql.Int, userId)
-      .query('SELECT id FROM Menus WHERE id = @menuId AND userId = @userId');
+      .input("menuId", sql.Int, parseInt(menuId))
+      .input("userId", sql.Int, userId)
+      .query("SELECT id FROM Menus WHERE id = @menuId AND userId = @userId");
 
     if (menuCheck.recordset.length === 0) {
-      res.status(404).json({ error: 'Menu not found or access denied' });
+      res.status(404).json({ error: "Menu not found or access denied" });
       return;
     }
 
     // Get category with both translations
     const result = await pool
       .request()
-      .input('categoryId', sql.Int, parseInt(categoryId))
-      .input('menuId', sql.Int, parseInt(menuId))
-      .query(`
+      .input("categoryId", sql.Int, parseInt(categoryId))
+      .input("menuId", sql.Int, parseInt(menuId)).query(`
         SELECT 
           c.id,
           c.menuId,
@@ -91,19 +103,22 @@ export async function getCategoryById(req: Request, res: Response): Promise<void
       `);
 
     if (result.recordset.length === 0) {
-      res.status(404).json({ error: 'Category not found' });
+      res.status(404).json({ error: "Category not found" });
       return;
     }
 
     res.json({ category: result.recordset[0] });
   } catch (error) {
-    logger.error('Get category by ID error:', error);
-    res.status(500).json({ error: 'Failed to get category' });
+    logger.error("Get category by ID error:", error);
+    res.status(500).json({ error: "Failed to get category" });
   }
 }
 
 // Create category
-export async function createCategory(req: Request, res: Response): Promise<void> {
+export async function createCategory(
+  req: Request,
+  res: Response
+): Promise<void> {
   try {
     const userId = req.user!.userId;
     const { menuId } = req.params;
@@ -111,7 +126,9 @@ export async function createCategory(req: Request, res: Response): Promise<void>
 
     // Validate required fields
     if (!nameAr || !nameEn) {
-      res.status(400).json({ error: 'Name is required in both Arabic and English' });
+      res
+        .status(400)
+        .json({ error: "Name is required in both Arabic and English" });
       return;
     }
 
@@ -120,22 +137,21 @@ export async function createCategory(req: Request, res: Response): Promise<void>
     // Verify menu ownership
     const menuCheck = await pool
       .request()
-      .input('menuId', sql.Int, parseInt(menuId))
-      .input('userId', sql.Int, userId)
-      .query('SELECT id FROM Menus WHERE id = @menuId AND userId = @userId');
+      .input("menuId", sql.Int, parseInt(menuId))
+      .input("userId", sql.Int, userId)
+      .query("SELECT id FROM Menus WHERE id = @menuId AND userId = @userId");
 
     if (menuCheck.recordset.length === 0) {
-      res.status(404).json({ error: 'Menu not found or access denied' });
+      res.status(404).json({ error: "Menu not found or access denied" });
       return;
     }
 
     // Insert category
     const categoryResult = await pool
       .request()
-      .input('menuId', sql.Int, parseInt(menuId))
-      .input('image', sql.NVarChar, image || null)
-      .input('sortOrder', sql.Int, sortOrder)
-      .query(`
+      .input("menuId", sql.Int, parseInt(menuId))
+      .input("image", sql.NVarChar, image || null)
+      .input("sortOrder", sql.Int, sortOrder).query(`
         INSERT INTO Categories (menuId, image, sortOrder)
         VALUES (@menuId, @image, @sortOrder);
         SELECT SCOPE_IDENTITY() AS id;
@@ -146,10 +162,9 @@ export async function createCategory(req: Request, res: Response): Promise<void>
     // Insert Arabic translation
     await pool
       .request()
-      .input('categoryId', sql.Int, categoryId)
-      .input('locale', sql.NVarChar, 'ar')
-      .input('name', sql.NVarChar, nameAr)
-      .query(`
+      .input("categoryId", sql.Int, categoryId)
+      .input("locale", sql.NVarChar, "ar")
+      .input("name", sql.NVarChar, nameAr).query(`
         INSERT INTO CategoryTranslations (categoryId, locale, name)
         VALUES (@categoryId, @locale, @name)
       `);
@@ -157,26 +172,28 @@ export async function createCategory(req: Request, res: Response): Promise<void>
     // Insert English translation
     await pool
       .request()
-      .input('categoryId', sql.Int, categoryId)
-      .input('locale', sql.NVarChar, 'en')
-      .input('name', sql.NVarChar, nameEn)
-      .query(`
+      .input("categoryId", sql.Int, categoryId)
+      .input("locale", sql.NVarChar, "en")
+      .input("name", sql.NVarChar, nameEn).query(`
         INSERT INTO CategoryTranslations (categoryId, locale, name)
         VALUES (@categoryId, @locale, @name)
       `);
 
     res.status(201).json({
-      message: 'Category created successfully',
+      message: "Category created successfully",
       categoryId,
     });
   } catch (error) {
-    logger.error('Create category error:', error);
-    res.status(500).json({ error: 'Failed to create category' });
+    logger.error("Create category error:", error);
+    res.status(500).json({ error: "Failed to create category" });
   }
 }
 
 // Update category
-export async function updateCategory(req: Request, res: Response): Promise<void> {
+export async function updateCategory(
+  req: Request,
+  res: Response
+): Promise<void> {
   try {
     const userId = req.user!.userId;
     const { menuId, categoryId } = req.params;
@@ -187,49 +204,64 @@ export async function updateCategory(req: Request, res: Response): Promise<void>
     // Verify menu ownership
     const menuCheck = await pool
       .request()
-      .input('menuId', sql.Int, parseInt(menuId))
-      .input('userId', sql.Int, userId)
-      .query('SELECT id FROM Menus WHERE id = @menuId AND userId = @userId');
+      .input("menuId", sql.Int, parseInt(menuId))
+      .input("userId", sql.Int, userId)
+      .query("SELECT id FROM Menus WHERE id = @menuId AND userId = @userId");
 
     if (menuCheck.recordset.length === 0) {
-      res.status(404).json({ error: 'Menu not found or access denied' });
+      res.status(404).json({ error: "Menu not found or access denied" });
       return;
     }
 
     // Verify category belongs to menu
     const categoryCheck = await pool
       .request()
-      .input('categoryId', sql.Int, parseInt(categoryId))
-      .input('menuId', sql.Int, parseInt(menuId))
-      .query('SELECT id FROM Categories WHERE id = @categoryId AND menuId = @menuId');
+      .input("categoryId", sql.Int, parseInt(categoryId))
+      .input("menuId", sql.Int, parseInt(menuId))
+      .query(
+        "SELECT id FROM Categories WHERE id = @categoryId AND menuId = @menuId"
+      );
 
     if (categoryCheck.recordset.length === 0) {
-      res.status(404).json({ error: 'Category not found' });
+      res.status(404).json({ error: "Category not found" });
       return;
     }
 
-    // Update category
-    if (image !== undefined || sortOrder !== undefined || isActive !== undefined) {
-      await pool
-        .request()
-        .input('categoryId', sql.Int, parseInt(categoryId))
-        .input('image', sql.NVarChar, image || null)
-        .input('sortOrder', sql.Int, sortOrder)
-        .input('isActive', sql.Bit, isActive !== undefined ? isActive : true)
-        .query(`
-          UPDATE Categories
-          SET image = @image, sortOrder = @sortOrder, isActive = @isActive
-          WHERE id = @categoryId
-        `);
+    // Update category - build dynamic update query
+    const updates: string[] = [];
+    const request = pool
+      .request()
+      .input("categoryId", sql.Int, parseInt(categoryId));
+
+    if (image !== undefined) {
+      updates.push("image = @image");
+      request.input("image", sql.NVarChar, image || null);
+    }
+
+    if (sortOrder !== undefined) {
+      updates.push("sortOrder = @sortOrder");
+      request.input("sortOrder", sql.Int, sortOrder);
+    }
+
+    if (isActive !== undefined) {
+      updates.push("isActive = @isActive");
+      request.input("isActive", sql.Bit, isActive);
+    }
+
+    if (updates.length > 0) {
+      await request.query(`
+        UPDATE Categories
+        SET ${updates.join(", ")}
+        WHERE id = @categoryId
+      `);
     }
 
     // Update translations
     if (nameAr !== undefined) {
       await pool
         .request()
-        .input('categoryId', sql.Int, parseInt(categoryId))
-        .input('name', sql.NVarChar, nameAr)
-        .query(`
+        .input("categoryId", sql.Int, parseInt(categoryId))
+        .input("name", sql.NVarChar, nameAr).query(`
           UPDATE CategoryTranslations
           SET name = @name
           WHERE categoryId = @categoryId AND locale = 'ar'
@@ -239,24 +271,26 @@ export async function updateCategory(req: Request, res: Response): Promise<void>
     if (nameEn !== undefined) {
       await pool
         .request()
-        .input('categoryId', sql.Int, parseInt(categoryId))
-        .input('name', sql.NVarChar, nameEn)
-        .query(`
+        .input("categoryId", sql.Int, parseInt(categoryId))
+        .input("name", sql.NVarChar, nameEn).query(`
           UPDATE CategoryTranslations
           SET name = @name
           WHERE categoryId = @categoryId AND locale = 'en'
         `);
     }
 
-    res.json({ message: 'Category updated successfully' });
+    res.json({ message: "Category updated successfully" });
   } catch (error) {
-    logger.error('Update category error:', error);
-    res.status(500).json({ error: 'Failed to update category' });
+    logger.error("Update category error:", error);
+    res.status(500).json({ error: "Failed to update category" });
   }
 }
 
 // Delete category
-export async function deleteCategory(req: Request, res: Response): Promise<void> {
+export async function deleteCategory(
+  req: Request,
+  res: Response
+): Promise<void> {
   try {
     const userId = req.user!.userId;
     const { menuId, categoryId } = req.params;
@@ -266,24 +300,27 @@ export async function deleteCategory(req: Request, res: Response): Promise<void>
     // Verify menu ownership
     const menuCheck = await pool
       .request()
-      .input('menuId', sql.Int, parseInt(menuId))
-      .input('userId', sql.Int, userId)
-      .query('SELECT id FROM Menus WHERE id = @menuId AND userId = @userId');
+      .input("menuId", sql.Int, parseInt(menuId))
+      .input("userId", sql.Int, userId)
+      .query("SELECT id FROM Menus WHERE id = @menuId AND userId = @userId");
 
     if (menuCheck.recordset.length === 0) {
-      res.status(404).json({ error: 'Menu not found or access denied' });
+      res.status(404).json({ error: "Menu not found or access denied" });
       return;
     }
 
     // Check if category has items
     const itemsCheck = await pool
       .request()
-      .input('categoryId', sql.Int, parseInt(categoryId))
-      .query('SELECT COUNT(*) as count FROM MenuItems WHERE categoryId = @categoryId');
+      .input("categoryId", sql.Int, parseInt(categoryId))
+      .query(
+        "SELECT COUNT(*) as count FROM MenuItems WHERE categoryId = @categoryId"
+      );
 
     if (itemsCheck.recordset[0].count > 0) {
-      res.status(400).json({ 
-        error: 'Cannot delete category with items. Please delete or move items first.' 
+      res.status(400).json({
+        error:
+          "Cannot delete category with items. Please delete or move items first.",
       });
       return;
     }
@@ -291,19 +328,20 @@ export async function deleteCategory(req: Request, res: Response): Promise<void>
     // Delete category (translations will be deleted automatically due to CASCADE)
     const result = await pool
       .request()
-      .input('categoryId', sql.Int, parseInt(categoryId))
-      .input('menuId', sql.Int, parseInt(menuId))
-      .query('DELETE FROM Categories WHERE id = @categoryId AND menuId = @menuId');
+      .input("categoryId", sql.Int, parseInt(categoryId))
+      .input("menuId", sql.Int, parseInt(menuId))
+      .query(
+        "DELETE FROM Categories WHERE id = @categoryId AND menuId = @menuId"
+      );
 
     if (result.rowsAffected[0] === 0) {
-      res.status(404).json({ error: 'Category not found' });
+      res.status(404).json({ error: "Category not found" });
       return;
     }
 
-    res.json({ message: 'Category deleted successfully' });
+    res.json({ message: "Category deleted successfully" });
   } catch (error) {
-    logger.error('Delete category error:', error);
-    res.status(500).json({ error: 'Failed to delete category' });
+    logger.error("Delete category error:", error);
+    res.status(500).json({ error: "Failed to delete category" });
   }
 }
-

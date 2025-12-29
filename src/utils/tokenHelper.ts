@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken";
 
 export interface TokenPayload {
   userId: number;
@@ -8,13 +8,13 @@ export interface TokenPayload {
 
 export function generateAccessToken(payload: TokenPayload): string {
   return jwt.sign(payload, process.env.JWT_ACCESS_SECRET!, {
-    expiresIn: process.env.JWT_ACCESS_EXPIRY || '15m',
+    expiresIn: process.env.JWT_ACCESS_EXPIRY || "1d", // Changed from 15m to 1 day
   });
 }
 
 export function generateRefreshToken(payload: TokenPayload): string {
   return jwt.sign(payload, process.env.JWT_REFRESH_SECRET!, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRY || '7d',
+    expiresIn: process.env.JWT_REFRESH_EXPIRY || "7d",
   });
 }
 
@@ -30,8 +30,6 @@ export function generateRandomToken(): string {
   return jwt.sign(
     { random: Math.random().toString(36) },
     process.env.JWT_ACCESS_SECRET!,
-    { expiresIn: '24h' }
+    { expiresIn: "24h" }
   );
 }
-
-

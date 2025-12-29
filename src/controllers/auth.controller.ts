@@ -417,3 +417,59 @@ export async function getMe(req: Request, res: Response): Promise<void> {
   }
 }
 
+// Refresh Token
+export async function refreshToken(req: Request, res: Response): Promise<void> {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      res.status(400).json({ error: 'Refresh token is required' });
+      return;
+    }
+
+    const pool = await getPool();
+
+    // Verify refresh token
+    const { verifyRefreshToken } = require('../utils/tokenHelper');
+    let decoded;
+    try {
+      decoded = verifyRefreshToken(refreshToken);
+    } catch (error) {
+      res.status(401).json({ error: 'Invalid or expired refresh token' });
+      return;
+    }
+
+    // Get user from database
+    const userResult = await pool
+      .request()
+      .input('userId', sql.Int, decoded.userId)
+      .query('SELECT * FROM Users WHERE id = @userId');
+
+    if (userResult.recordset.length === 0) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const user = userResult.recordset[0];
+
+    // Generate new access token
+    const tokenPayload = {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    };
+
+    const newAccessToken = generateAccessToken(tokenPayload);
+    const newRefreshToken = generateRefreshToken(tokenPayload);
+
+    res.json({
+      message: 'Token refreshed successfully',
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
+  } catch (error) {
+    logger.error('Refresh token error:', error);
+    res.status(500).json({ error: 'Failed to refresh token' });
+  }
+}
+

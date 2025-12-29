@@ -74,6 +74,15 @@ router.post(
 // GET /api/auth/me - Protected route
 router.get('/me', requireAuth, authController.getMe);
 
+// POST /api/auth/refresh - Refresh access token
+router.post(
+  '/refresh',
+  validate([
+    body('refreshToken').notEmpty().withMessage('Refresh token is required'),
+  ]),
+  authController.refreshToken
+);
+
 export default router;
 
 

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { getPool, sql, executeTransaction } from '../config/database';
 import { logger } from '../utils/logger';
+import { normalizeImageUrls } from '../utils/urlHelper';
 
 // Get menu items
 export async function getMenuItems(req: Request, res: Response): Promise<void> {
@@ -106,7 +107,10 @@ export async function getMenuItems(req: Request, res: Response): Promise<void> {
 
     const result = await request.query(query);
 
-    res.json({ items: result.recordset });
+    // Normalize image URLs to absolute paths
+    const items = normalizeImageUrls(result.recordset);
+
+    res.json({ items });
   } catch (error) {
     logger.error('Get menu items error:', error);
     res.status(500).json({ error: 'Failed to get menu items' });
@@ -297,6 +301,7 @@ export async function updateMenuItem(req: Request, res: Response): Promise<void>
       discountPercent,      // ← جديد
       image,
       isAvailable,
+      available,            // Add this for compatibility
       sortOrder,
     } = req.body;
 

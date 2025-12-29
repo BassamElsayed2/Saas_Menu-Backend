@@ -68,8 +68,12 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Serve static files (uploads)
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+// Serve static files (uploads) with CORS headers
+app.use("/uploads", (req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  next();
+}, express.static(path.join(__dirname, "../uploads")));
 
 // Request logging
 app.use((req, res, next) => {
