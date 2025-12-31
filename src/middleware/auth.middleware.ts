@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken, TokenPayload } from '../utils/tokenHelper';
 import { ROLES } from '../config/constants';
+import { TokenBlacklistService } from '../services/tokenBlacklist.service';
 
 // Extend Express Request type
 declare global {
@@ -11,7 +12,7 @@ declare global {
   }
 }
 
-export function verifyToken(req: Request, res: Response, next: NextFunction): void {
+export async function verifyToken(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -22,6 +23,13 @@ export function verifyToken(req: Request, res: Response, next: NextFunction): vo
   const token = authHeader.substring(7);
 
   try {
+    // Check if token is blacklisted
+    const isBlacklisted = await TokenBlacklistService.isBlacklisted(token);
+    if (isBlacklisted) {
+      res.status(401).json({ error: 'Token has been revoked' });
+      return;
+    }
+
     const decoded = verifyAccessToken(token);
     req.user = decoded;
     next();
@@ -30,12 +38,12 @@ export function verifyToken(req: Request, res: Response, next: NextFunction): vo
   }
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  verifyToken(req, res, next);
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  await verifyToken(req, res, next);
 }
 
-export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  verifyToken(req, res, () => {
+export async function requireAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  await verifyToken(req, res, () => {
     if (req.user?.role !== ROLES.ADMIN) {
       res.status(403).json({ error: 'Admin access required' });
       return;

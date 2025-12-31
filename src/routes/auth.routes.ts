@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import * as authController from '../controllers/auth.controller';
 import { validate } from '../middleware/validation';
+import { validateRequest } from '../middleware/zodValidation';
+import { signupSchema, checkAvailabilitySchema, loginSchema } from '../validators/auth.validator';
 import { 
   authLimiter, 
   passwordResetLimiter, 
@@ -11,16 +13,18 @@ import { requireAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 
+// GET /api/auth/check-availability?email=xxx&phoneNumber=xxx
+router.get(
+  '/check-availability',
+  validateRequest(checkAvailabilitySchema, 'query'),
+  authController.checkAvailability
+);
+
 // POST /api/auth/signup
 router.post(
   '/signup',
   authLimiter,
-  validate([
-    body('email').isEmail().normalizeEmail(),
-    body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
-    body('name').notEmpty().trim().isLength({ max: 255 }),
-    body('locale').optional().isIn(['ar', 'en']),
-  ]),
+  validateRequest(signupSchema, 'body'),
   authController.signup
 );
 
@@ -28,10 +32,7 @@ router.post(
 router.post(
   '/login',
   authLimiter,
-  validate([
-    body('email').isEmail().normalizeEmail(),
-    body('password').notEmpty(),
-  ]),
+  validateRequest(loginSchema, 'body'),
   authController.login
 );
 
@@ -81,6 +82,13 @@ router.post(
     body('refreshToken').notEmpty().withMessage('Refresh token is required'),
   ]),
   authController.refreshToken
+);
+
+// POST /api/auth/logout - Logout (revoke tokens)
+router.post(
+  '/logout',
+  requireAuth,
+  authController.logout
 );
 
 export default router;

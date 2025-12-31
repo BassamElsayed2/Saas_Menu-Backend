@@ -9,6 +9,8 @@ import { getPool, closePool } from "./config/database";
 import { testEmailConnection } from "./config/email";
 import { logger } from "./utils/logger";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
+import { validateJWTSecrets } from "./utils/tokenHelper";
+import { CleanupService } from "./services/cleanup.service";
 
 // Import routes
 import authRoutes from "./routes/auth.routes";
@@ -19,6 +21,7 @@ import categoryRoutes from "./routes/category.routes";
 import userRoutes from "./routes/user.routes";
 import adminRoutes from "./routes/admin.routes";
 import uploadRoutes from "./routes/upload.routes";
+import adsRoutes from "./routes/ads.routes";
 import { ensureUploadDirectories } from "./controllers/upload.controller";
 
 logger.debug("Environment check after loading:", {
@@ -28,6 +31,9 @@ logger.debug("Environment check after loading:", {
   DB_PORT: process.env.DB_PORT,
   DB_NAME: process.env.DB_NAME,
 });
+
+// Validate JWT secrets on startup
+validateJWTSecrets();
 
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
@@ -39,21 +45,53 @@ app.set("trust proxy", 1);
 app.use(helmet());
 
 // CORS configuration
+const allowedOrigins = [
+  process.env.FRONTEND_URL || "http://localhost:3000",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+];
+
+// In production, only allow specific origins
+if (process.env.NODE_ENV === 'production') {
+  // Remove localhost from production
+  const productionOrigins = allowedOrigins.filter(
+    origin => !origin.includes('localhost') && !origin.includes('127.0.0.1')
+  );
+  if (productionOrigins.length === 0) {
+    logger.error('🔴 SECURITY WARNING: No production origins configured for CORS!');
+  }
+}
+
 app.use(
   cors({
     origin: function (origin, callback) {
       // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
+      // But only in development
+      if (!origin && process.env.NODE_ENV === 'development') {
+        return callback(null, true);
+      }
       
-      const allowedOrigins = [
-        process.env.FRONTEND_URL || "http://localhost:3000",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-      ];
+      if (!origin) {
+        return callback(new Error('Origin not allowed by CORS'));
+      }
       
-      if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      // In development, allow all localhost origins including subdomains
+      if (process.env.NODE_ENV === 'development') {
+        // Allow localhost with any subdomain on port 3000
+        if (origin.match(/^https?:\/\/([a-zA-Z0-9-]+\.)?localhost:3000$/)) {
+          return callback(null, true);
+        }
+        // Allow 127.0.0.1
+        if (origin.match(/^https?:\/\/127\.0\.0\.1:3000$/)) {
+          return callback(null, true);
+        }
+      }
+      
+      // Check if origin is in allowed list
+      if (allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
+        logger.warn(`🔴 CORS blocked request from origin: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
@@ -61,6 +99,7 @@ app.use(
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     exposedHeaders: ["Content-Type"],
+    maxAge: 86400, // 24 hours cache for preflight requests
   })
 );
 
@@ -99,6 +138,7 @@ app.use("/api", categoryRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api", adsRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
@@ -134,6 +174,9 @@ async function startServer() {
         logger.debug("Email error details:", error.message);
       });
 
+    // Start cleanup service
+    CleanupService.start();
+
     app.listen(PORT, () => {
       logger.info(`🚀 Server is running on port ${PORT}`);
       logger.info(`📊 Environment: ${process.env.NODE_ENV || "development"}`);
@@ -149,12 +192,14 @@ async function startServer() {
 // Graceful shutdown
 process.on("SIGTERM", async () => {
   logger.info("SIGTERM signal received: closing HTTP server");
+  CleanupService.stop();
   await closePool();
   process.exit(0);
 });
 
 process.on("SIGINT", async () => {
   logger.info("SIGINT signal received: closing HTTP server");
+  CleanupService.stop();
   await closePool();
   process.exit(0);
 });

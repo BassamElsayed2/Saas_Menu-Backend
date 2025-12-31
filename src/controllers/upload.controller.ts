@@ -9,7 +9,7 @@ import { logger } from '../utils/logger';
 import { getImageUrl } from '../utils/urlHelper';
 
 // Allowed image types
-const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/x-icon', 'image/vnd.microsoft.icon'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 // Configure multer for memory storage
@@ -19,10 +19,18 @@ export const uploadMemoryStorage = multer({
     fileSize: MAX_FILE_SIZE,
   },
   fileFilter: (req, file, cb) => {
-    if (ALLOWED_TYPES.includes(file.mimetype)) {
+    // For logos, check file size and type separately
+    if (req.body.type === 'logos' && file.mimetype.includes('icon')) {
+      // ICO files for logos - 1MB limit
+      if (file.size > 1 * 1024 * 1024) {
+        cb(new Error('Favicon file size must be less than 1MB.'));
+        return;
+      }
+      cb(null, true);
+    } else if (ALLOWED_TYPES.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG, and WebP are allowed.'));
+      cb(new Error('Invalid file type. Only JPEG, PNG, WebP, and ICO are allowed.'));
     }
   },
 });
@@ -65,68 +73,106 @@ export async function uploadImage(req: Request, res: Response): Promise<void> {
     // Verify file type using file-type library
     const fileType = await fileTypeFromBuffer(req.file.buffer);
     
-    if (!fileType || !ALLOWED_TYPES.includes(fileType.mime)) {
+    // Check if it's a favicon (ICO file)
+    const isIcon = fileType?.mime === 'image/x-icon' || fileType?.mime === 'image/vnd.microsoft.icon' || req.file.originalname.endsWith('.ico');
+    
+    if (!fileType && !isIcon) {
       res.status(400).json({ error: 'Invalid file type detected' });
       return;
     }
 
-    // Generate unique filename
-    const filename = `${uuidv4()}.webp`;
-    const uploadDir = path.join(process.cwd(), 'uploads', type);
-    const filePath = path.join(uploadDir, filename);
-
-    // Ensure directory exists
-    await fs.mkdir(uploadDir, { recursive: true });
-
-    // Optimize and convert to WebP
-    let sharpInstance = sharp(req.file.buffer);
-
-    if (type === 'logos') {
-      // Logos: 200x200, maintain aspect ratio
-      sharpInstance = sharpInstance.resize(200, 200, {
-        fit: 'inside',
-        withoutEnlargement: true,
-      });
-    } else if (type === 'menu-items') {
-      // Menu items: max 800x800, maintain aspect ratio
-      sharpInstance = sharpInstance.resize(800, 800, {
-        fit: 'inside',
-        withoutEnlargement: true,
-      });
-    } else if (type === 'ads') {
-      // Ads: max 1200x600, maintain aspect ratio
-      sharpInstance = sharpInstance.resize(1200, 600, {
-        fit: 'inside',
-        withoutEnlargement: true,
-      });
-    } else if (type === 'categories') {
-      // Categories: 300x300, maintain aspect ratio
-      sharpInstance = sharpInstance.resize(300, 300, {
-        fit: 'inside',
-        withoutEnlargement: true,
-      });
+    if (!isIcon && !ALLOWED_TYPES.includes(fileType.mime)) {
+      res.status(400).json({ error: 'Invalid file type detected' });
+      return;
     }
 
-    // Convert to WebP and save
-    await sharpInstance
-      .webp({ quality: 85 })
-      .toFile(filePath);
+    // For ICO files, only allow in logos type
+    if (isIcon && type !== 'logos') {
+      res.status(400).json({ error: 'ICO files are only allowed for logos' });
+      return;
+    }
 
-    // Get file size
-    const stats = await fs.stat(filePath);
+    // Validate ICO file size (1MB max)
+    if (isIcon && req.file.size > 1 * 1024 * 1024) {
+      res.status(400).json({ error: 'Favicon file size must be less than 1MB' });
+      return;
+    }
+
+    const uploadDir = path.join(process.cwd(), 'uploads', type);
+    await fs.mkdir(uploadDir, { recursive: true });
+
+    let filename: string;
+    let filePath: string;
+    let fileSize: number;
+    let mimeType: string;
+
+    // Handle ICO files differently (save as-is, no conversion)
+    if (isIcon) {
+      filename = `${uuidv4()}.ico`;
+      filePath = path.join(uploadDir, filename);
+      
+      // Save ICO file as-is
+      await fs.writeFile(filePath, req.file.buffer);
+      const stats = await fs.stat(filePath);
+      fileSize = stats.size;
+      mimeType = 'image/x-icon';
+    } else {
+      // Handle regular images (convert to WebP)
+      filename = `${uuidv4()}.webp`;
+      filePath = path.join(uploadDir, filename);
+
+      // Optimize and convert to WebP
+      let sharpInstance = sharp(req.file.buffer);
+
+      if (type === 'logos') {
+        // Logos: 200x200, maintain aspect ratio
+        sharpInstance = sharpInstance.resize(200, 200, {
+          fit: 'inside',
+          withoutEnlargement: true,
+        });
+      } else if (type === 'menu-items') {
+        // Menu items: max 800x800, maintain aspect ratio
+        sharpInstance = sharpInstance.resize(800, 800, {
+          fit: 'inside',
+          withoutEnlargement: true,
+        });
+      } else if (type === 'ads') {
+        // Ads: max 1200x600, maintain aspect ratio
+        sharpInstance = sharpInstance.resize(1200, 600, {
+          fit: 'inside',
+          withoutEnlargement: true,
+        });
+      } else if (type === 'categories') {
+        // Categories: 300x300, maintain aspect ratio
+        sharpInstance = sharpInstance.resize(300, 300, {
+          fit: 'inside',
+          withoutEnlargement: true,
+        });
+      }
+
+      // Convert to WebP and save
+      await sharpInstance
+        .webp({ quality: 85 })
+        .toFile(filePath);
+
+      // Get file size
+      const stats = await fs.stat(filePath);
+      fileSize = stats.size;
+      mimeType = 'image/webp';
+    }
 
     // Return file URL - use helper for dynamic URL generation
     const relativePath = `/uploads/${type}/${filename}`;
     const fileUrl = getImageUrl(relativePath)!;
 
-    logger.info(`File uploaded: ${fileUrl} (${stats.size} bytes)`);
+    logger.info(`File uploaded: ${fileUrl} (${fileSize} bytes, ${mimeType})`);
 
     res.json({
       message: 'File uploaded successfully',
       url: fileUrl,
       filename,
-      size: stats.size,
-      type: 'image/webp',
+      size: fileSize,
+      type: mimeType,
     });
   } catch (error) {
     logger.error('Upload image error:', error);

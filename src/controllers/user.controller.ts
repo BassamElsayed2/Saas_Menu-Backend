@@ -121,7 +121,7 @@ export async function changePassword(req: Request, res: Response): Promise<void>
     const userResult = await pool
       .request()
       .input('userId', sql.Int, userId)
-      .query('SELECT passwordHash FROM Users WHERE id = @userId');
+      .query('SELECT password FROM Users WHERE id = @userId');
 
     if (userResult.recordset.length === 0) {
       res.status(404).json({ error: 'User not found' });
@@ -131,7 +131,7 @@ export async function changePassword(req: Request, res: Response): Promise<void>
     // Verify current password
     const isValid = await bcrypt.compare(
       currentPassword,
-      userResult.recordset[0].passwordHash
+      userResult.recordset[0].password
     );
 
     if (!isValid) {
@@ -146,8 +146,8 @@ export async function changePassword(req: Request, res: Response): Promise<void>
     await pool
       .request()
       .input('userId', sql.Int, userId)
-      .input('passwordHash', sql.NVarChar, newPasswordHash)
-      .query('UPDATE Users SET passwordHash = @passwordHash WHERE id = @userId');
+      .input('password', sql.NVarChar, newPasswordHash)
+      .query('UPDATE Users SET password = @password WHERE id = @userId');
 
     res.json({ message: 'Password changed successfully' });
   } catch (error) {
@@ -272,7 +272,7 @@ export async function deleteAccount(req: Request, res: Response): Promise<void> 
     const userResult = await pool
       .request()
       .input('userId', sql.Int, userId)
-      .query('SELECT passwordHash FROM Users WHERE id = @userId');
+      .query('SELECT password FROM Users WHERE id = @userId');
 
     if (userResult.recordset.length === 0) {
       res.status(404).json({ error: 'User not found' });
@@ -281,7 +281,7 @@ export async function deleteAccount(req: Request, res: Response): Promise<void> 
 
     const isValid = await bcrypt.compare(
       password,
-      userResult.recordset[0].passwordHash
+      userResult.recordset[0].password
     );
 
     if (!isValid) {
