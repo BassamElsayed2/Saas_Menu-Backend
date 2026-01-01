@@ -849,3 +849,127 @@ export async function getAdAnalytics(
     res.status(500).json({ error: "Failed to get ad analytics" });
   }
 }
+
+// ========== USER SUBSCRIPTION MANAGEMENT ==========
+
+// Update User Subscription
+export async function updateUserSubscription(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { planId, billingCycle, startDate, endDate, status = "active" } = req.body;
+
+    // Validate required fields
+    if (!planId || !billingCycle) {
+      res.status(400).json({ error: "Plan ID and billing cycle are required" });
+      return;
+    }
+
+    // Validate billing cycle
+    if (!["monthly", "yearly", "free"].includes(billingCycle)) {
+      res.status(400).json({ error: "Invalid billing cycle. Must be monthly, yearly, or free" });
+      return;
+    }
+
+    const pool = await getPool();
+
+    // Check if user exists
+    const userResult = await pool.request().input("userId", sql.Int, id).query(`
+      SELECT id, role FROM Users WHERE id = @userId
+    `);
+
+    if (userResult.recordset.length === 0) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    if (userResult.recordset[0].role === "admin") {
+      res.status(403).json({ error: "Cannot modify admin user subscriptions" });
+      return;
+    }
+
+    // Check if plan exists
+    const planResult = await pool.request().input("planId", sql.Int, planId).query(`
+      SELECT id, name FROM Plans WHERE id = @planId
+    `);
+
+    if (planResult.recordset.length === 0) {
+      res.status(404).json({ error: "Plan not found" });
+      return;
+    }
+
+    // Expire current active subscriptions
+    await pool.request().input("userId", sql.Int, id).query(`
+      UPDATE Subscriptions
+      SET status = 'expired', endDate = GETDATE()
+      WHERE userId = @userId AND status = 'active'
+    `);
+
+    // Create new subscription
+    const subscriptionStartDate = startDate ? new Date(startDate) : new Date();
+    let subscriptionEndDate = null;
+
+    if (endDate) {
+      subscriptionEndDate = new Date(endDate);
+    } else if (billingCycle === "monthly") {
+      subscriptionEndDate = new Date(subscriptionStartDate);
+      subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + 1);
+    } else if (billingCycle === "yearly") {
+      subscriptionEndDate = new Date(subscriptionStartDate);
+      subscriptionEndDate.setFullYear(subscriptionEndDate.getFullYear() + 1);
+    }
+
+    const insertResult = await pool
+      .request()
+      .input("userId", sql.Int, id)
+      .input("planId", sql.Int, planId)
+      .input("billingCycle", sql.NVarChar, billingCycle)
+      .input("startDate", sql.DateTime2, subscriptionStartDate)
+      .input("endDate", sql.DateTime2, subscriptionEndDate)
+      .input("status", sql.NVarChar, status).query(`
+        INSERT INTO Subscriptions (userId, planId, billingCycle, startDate, endDate, status)
+        OUTPUT INSERTED.id
+        VALUES (@userId, @planId, @billingCycle, @startDate, @endDate, @status)
+      `);
+
+    res.json({
+      message: "User subscription updated successfully",
+      subscription: {
+        id: insertResult.recordset[0].id,
+        userId: id,
+        planId,
+        planName: planResult.recordset[0].name,
+        billingCycle,
+        startDate: subscriptionStartDate,
+        endDate: subscriptionEndDate,
+        status,
+      },
+    });
+  } catch (error) {
+    logger.error("Update user subscription error:", error);
+    res.status(500).json({ error: "Failed to update user subscription" });
+  }
+}
+
+// Get All Plans (for subscription dropdown)
+export async function getPlansForSubscription(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const pool = await getPool();
+
+    const result = await pool.request().query(`
+      SELECT id, name, priceMonthly, priceYearly, maxMenus, maxProductsPerMenu
+      FROM Plans
+      ORDER BY priceMonthly ASC
+    `);
+
+    res.json({ plans: result.recordset });
+  } catch (error) {
+    logger.error("Get plans error:", error);
+    res.status(500).json({ error: "Failed to get plans" });
+  }
+}

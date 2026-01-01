@@ -15,6 +15,8 @@ import {
   createAdmin,
   getAllAdmins,
   getAdAnalytics,
+  updateUserSubscription,
+  getPlansForSubscription,
 } from '../controllers/admin.controller';
 import { requireAdmin } from '../middleware/auth.middleware';
 
@@ -30,9 +32,11 @@ router.get('/stats', getAdminStats);
 router.get('/users', getAllUsers);
 router.get('/users/:id', getUserDetails);
 router.put('/users/:id/suspend', toggleUserSuspension);
+router.put('/users/:id/subscription', updateUserSubscription);
 router.delete('/users/:id', deleteUser);
 
 // Plans Management
+router.get('/plans/subscription', getPlansForSubscription);
 router.get('/plans', getAllPlans);
 router.post('/plans', createPlan);
 router.put('/plans/:id', updatePlan);
