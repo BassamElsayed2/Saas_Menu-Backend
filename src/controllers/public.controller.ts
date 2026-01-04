@@ -28,7 +28,9 @@ export const getPublicMenu = async (req: Request, res: Response) => {
         FROM Menus m
         LEFT JOIN MenuTranslations mt ON m.id = mt.menuId AND mt.locale = @locale
         LEFT JOIN Users u ON m.userId = u.id
-        LEFT JOIN Subscriptions s ON u.id = s.userId AND s.status = 'active'
+        LEFT JOIN Subscriptions s ON u.id = s.userId 
+          AND s.status = 'active' 
+          AND (s.endDate IS NULL OR s.endDate > GETDATE())
         WHERE m.slug = @slug
       `);
 
@@ -458,29 +460,75 @@ export const getMenuCustomAds = async (req: Request, res: Response) => {
 
     const pool = await getPool();
 
-    let query = `
-      SELECT TOP (@limit)
-        id, title, titleAr, content, contentAr, imageUrl, linkUrl,
-        position, displayOrder
-      FROM Ads
-      WHERE menuId = @menuId AND adType = 'menu' AND isActive = 1
-    `;
+    // Check menu owner's plan type
+    const menuOwnerResult = await pool.request()
+      .input("menuId", sql.Int, menuId)
+      .query(`
+        SELECT 
+          m.userId,
+          s.billingCycle,
+          CASE 
+            WHEN s.billingCycle IS NULL OR s.billingCycle = 'free' THEN 'free'
+            ELSE 'paid'
+          END as planType
+        FROM Menus m
+        LEFT JOIN Subscriptions s ON m.userId = s.userId 
+          AND s.status = 'active' 
+          AND (s.endDate IS NULL OR s.endDate > GETDATE())
+        WHERE m.id = @menuId
+      `);
 
-    // Filter by position if provided
-    if (position) {
-      query += ` AND position = @position`;
+    if (menuOwnerResult.recordset.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Menu not found",
+      });
     }
 
-    query += `
-      ORDER BY displayOrder ASC, createdAt DESC
-    `;
+    const planType = menuOwnerResult.recordset[0].planType;
 
-    const request = pool.request()
-      .input("menuId", sql.Int, menuId)
-      .input("limit", sql.Int, limit);
+    let query = '';
+    let request = pool.request().input("limit", sql.Int, limit);
 
-    if (position) {
-      request.input("position", sql.NVarChar, position);
+    // If free plan, show global ads instead of custom ads
+    if (planType === 'free') {
+      query = `
+        SELECT TOP (@limit)
+          id, title, titleAr, content, contentAr, imageUrl, linkUrl,
+          position, displayOrder
+        FROM Ads
+        WHERE adType = 'global' AND isActive = 1
+      `;
+
+      if (position) {
+        query += ` AND position = @position`;
+        request.input("position", sql.NVarChar, position);
+      }
+
+      query += `
+        ORDER BY displayOrder ASC, createdAt DESC
+      `;
+    } 
+    // If paid plan, show custom menu ads
+    else {
+      query = `
+        SELECT TOP (@limit)
+          id, title, titleAr, content, contentAr, imageUrl, linkUrl,
+          position, displayOrder
+        FROM Ads
+        WHERE menuId = @menuId AND adType = 'menu' AND isActive = 1
+      `;
+
+      request.input("menuId", sql.Int, menuId);
+
+      if (position) {
+        query += ` AND position = @position`;
+        request.input("position", sql.NVarChar, position);
+      }
+
+      query += `
+        ORDER BY displayOrder ASC, createdAt DESC
+      `;
     }
 
     const result = await request.query(query);
@@ -499,6 +547,7 @@ export const getMenuCustomAds = async (req: Request, res: Response) => {
       success: true,
       data: {
         ads: result.recordset,
+        planType: planType, // Return plan type for frontend reference
       },
     });
   } catch (error: any) {

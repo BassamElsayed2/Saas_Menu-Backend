@@ -43,6 +43,9 @@ router.post(
 // GET /api/user/statistics - Get user statistics
 router.get('/statistics', userController.getStatistics);
 
+// GET /api/user/subscription - Get user subscription
+router.get('/subscription', userController.getSubscription);
+
 // POST /api/user/upgrade-plan - Upgrade subscription plan
 router.post(
   '/upgrade-plan',

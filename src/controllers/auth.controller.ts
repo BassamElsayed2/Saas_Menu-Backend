@@ -513,7 +513,9 @@ export async function getMe(req: Request, res: Response): Promise<void> {
           u.isEmailVerified, u.createdAt,
           s.planId, s.billingCycle, p.name as planName, p.maxMenus, p.maxProductsPerMenu
         FROM Users u
-        LEFT JOIN Subscriptions s ON u.id = s.userId AND s.status = 'active'
+        LEFT JOIN Subscriptions s ON u.id = s.userId 
+          AND s.status = 'active' 
+          AND (s.endDate IS NULL OR s.endDate > GETDATE())
         LEFT JOIN Plans p ON s.planId = p.id
         WHERE u.id = @userId
       `);

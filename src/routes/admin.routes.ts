@@ -17,6 +17,7 @@ import {
   getAdAnalytics,
   updateUserSubscription,
   getPlansForSubscription,
+  applyFreePlanLimits,
 } from '../controllers/admin.controller';
 import { requireAdmin } from '../middleware/auth.middleware';
 
@@ -33,6 +34,7 @@ router.get('/users', getAllUsers);
 router.get('/users/:id', getUserDetails);
 router.put('/users/:id/suspend', toggleUserSuspension);
 router.put('/users/:id/subscription', updateUserSubscription);
+router.post('/users/:id/apply-free-limits', applyFreePlanLimits);
 router.delete('/users/:id', deleteUser);
 
 // Plans Management

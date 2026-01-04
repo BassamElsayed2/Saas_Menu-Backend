@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { getPool, sql } from "../config/database";
 import { logger } from "../utils/logger";
 import bcrypt from "bcryptjs";
+import * as notificationService from "../services/notificationService";
 
 // Get Admin Dashboard Statistics
 export async function getAdminStats(
@@ -30,7 +31,9 @@ export async function getAdminStats(
       SELECT COUNT(*) as paidPlans 
       FROM Subscriptions s
       INNER JOIN Plans p ON s.planId = p.id
-      WHERE s.status = 'active' AND p.priceMonthly > 0
+      WHERE s.status = 'active' 
+        AND (s.endDate IS NULL OR s.endDate > GETDATE())
+        AND p.priceMonthly > 0
     `);
     const paidPlans = paidPlansResult.recordset[0].paidPlans;
 
@@ -39,7 +42,9 @@ export async function getAdminStats(
       SELECT COUNT(*) as trialUsers 
       FROM Subscriptions s
       INNER JOIN Plans p ON s.planId = p.id
-      WHERE s.status = 'active' AND p.priceMonthly = 0
+      WHERE s.status = 'active' 
+        AND (s.endDate IS NULL OR s.endDate > GETDATE())
+        AND p.priceMonthly = 0
     `);
     const trialUsers = trialUsersResult.recordset[0].trialUsers;
 
@@ -93,6 +98,7 @@ export async function getAdminStats(
       FROM Subscriptions s
       INNER JOIN Plans p ON s.planId = p.id
       WHERE s.status = 'active'
+        AND (s.endDate IS NULL OR s.endDate > GETDATE())
       GROUP BY p.name
     `);
 
@@ -169,7 +175,9 @@ export async function getAllUsers(req: Request, res: Response): Promise<void> {
         s.startDate, s.endDate, s.billingCycle,
         (SELECT COUNT(*) FROM Menus WHERE userId = u.id) as menusCount
       FROM Users u
-      LEFT JOIN Subscriptions s ON u.id = s.userId AND s.status = 'active'
+      LEFT JOIN Subscriptions s ON u.id = s.userId 
+        AND s.status = 'active' 
+        AND (s.endDate IS NULL OR s.endDate > GETDATE())
       LEFT JOIN Plans p ON s.planId = p.id ${joinPlanFilter}
       WHERE ${whereClause}
       ORDER BY u.${sortBy} ${sortOrder}
@@ -180,7 +188,9 @@ export async function getAllUsers(req: Request, res: Response): Promise<void> {
     const countQuery = `
       SELECT COUNT(*) as total
       FROM Users u
-      LEFT JOIN Subscriptions s ON u.id = s.userId AND s.status = 'active'
+      LEFT JOIN Subscriptions s ON u.id = s.userId 
+        AND s.status = 'active' 
+        AND (s.endDate IS NULL OR s.endDate > GETDATE())
       LEFT JOIN Plans p ON s.planId = p.id ${joinPlanFilter}
       WHERE ${whereClause}
     `;
@@ -227,7 +237,9 @@ export async function getUserDetails(
           p.name as planName, s.status as subscriptionStatus,
           s.startDate, s.endDate, s.billingCycle, s.amount
         FROM Users u
-        LEFT JOIN Subscriptions s ON u.id = s.userId AND s.status = 'active'
+        LEFT JOIN Subscriptions s ON u.id = s.userId 
+          AND s.status = 'active' 
+          AND (s.endDate IS NULL OR s.endDate > GETDATE())
         LEFT JOIN Plans p ON s.planId = p.id
         WHERE u.id = @userId AND u.role = 'user'
       `);
@@ -929,10 +941,24 @@ export async function updateUserSubscription(
       .input("startDate", sql.DateTime2, subscriptionStartDate)
       .input("endDate", sql.DateTime2, subscriptionEndDate)
       .input("status", sql.NVarChar, status).query(`
-        INSERT INTO Subscriptions (userId, planId, billingCycle, startDate, endDate, status)
+        INSERT INTO Subscriptions (userId, planId, billingCycle, startDate, endDate, status, notificationSent)
         OUTPUT INSERTED.id
-        VALUES (@userId, @planId, @billingCycle, @startDate, @endDate, @status)
+        VALUES (@userId, @planId, @billingCycle, @startDate, @endDate, @status, 1)
       `);
+
+    // Send subscription created notification
+    if (status === 'active' && subscriptionEndDate && planResult.recordset[0].name !== 'Free') {
+      try {
+        await notificationService.notifySubscriptionCreated(
+          parseInt(id),
+          planResult.recordset[0].name,
+          subscriptionEndDate
+        );
+      } catch (error) {
+        logger.error('Failed to send subscription created notification:', error);
+        // Don't fail the request if notification fails
+      }
+    }
 
     res.json({
       message: "User subscription updated successfully",
@@ -971,5 +997,107 @@ export async function getPlansForSubscription(
   } catch (error) {
     logger.error("Get plans error:", error);
     res.status(500).json({ error: "Failed to get plans" });
+  }
+}
+
+// Apply Free Plan Limits to User (Manual)
+export async function applyFreePlanLimits(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const { id } = req.params;
+    const pool = await getPool();
+
+    // Check if user exists
+    const userResult = await pool.request().input("userId", sql.Int, id).query(`
+      SELECT id, name, email, role FROM Users WHERE id = @userId
+    `);
+
+    if (userResult.recordset.length === 0) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    if (userResult.recordset[0].role === "admin") {
+      res.status(403).json({ error: "Cannot apply free plan limits to admin users" });
+      return;
+    }
+
+    const user = userResult.recordset[0];
+
+    // Import and use the downgrade service
+    const { SubscriptionDowngradeService } = await import('../services/subscriptionDowngrade.service');
+    
+    // Get info before applying limits
+    const beforeResult = await pool.request().input("userId", sql.Int, id).query(`
+      SELECT 
+        (SELECT COUNT(*) FROM Menus WHERE userId = @userId AND isActive = 1) as activeMenus,
+        (SELECT COUNT(*) FROM Menus WHERE userId = @userId) as totalMenus,
+        (SELECT COUNT(*) FROM MenuItems mi 
+         INNER JOIN Menus m ON mi.menuId = m.id 
+         WHERE m.userId = @userId) as totalProducts,
+        (SELECT COUNT(*) FROM Ads a 
+         INNER JOIN Menus m ON a.menuId = m.id 
+         WHERE m.userId = @userId) as totalAds,
+        (SELECT COUNT(*) FROM Branches b 
+         INNER JOIN Menus m ON b.menuId = m.id 
+         WHERE m.userId = @userId) as totalBranches
+    `);
+
+    const before = beforeResult.recordset[0];
+
+    // Apply free plan limits
+    await SubscriptionDowngradeService.handleDowngradeToFree(parseInt(id));
+
+    // Get info after applying limits
+    const afterResult = await pool.request().input("userId", sql.Int, id).query(`
+      SELECT 
+        (SELECT COUNT(*) FROM Menus WHERE userId = @userId AND isActive = 1) as activeMenus,
+        (SELECT COUNT(*) FROM Menus WHERE userId = @userId) as totalMenus,
+        (SELECT COUNT(*) FROM MenuItems mi 
+         INNER JOIN Menus m ON mi.menuId = m.id 
+         WHERE m.userId = @userId) as totalProducts,
+        (SELECT COUNT(*) FROM Ads a 
+         INNER JOIN Menus m ON a.menuId = m.id 
+         WHERE m.userId = @userId) as totalAds,
+        (SELECT COUNT(*) FROM Branches b 
+         INNER JOIN Menus m ON b.menuId = m.id 
+         WHERE m.userId = @userId) as totalBranches
+    `);
+
+    const after = afterResult.recordset[0];
+
+    res.json({
+      message: "Free plan limits applied successfully",
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      },
+      changes: {
+        menusDeactivated: before.activeMenus - after.activeMenus,
+        productsDeleted: before.totalProducts - after.totalProducts,
+        adsDeleted: before.totalAds - after.totalAds,
+        branchesDeleted: before.totalBranches - after.totalBranches,
+      },
+      before: {
+        activeMenus: before.activeMenus,
+        totalMenus: before.totalMenus,
+        totalProducts: before.totalProducts,
+        totalAds: before.totalAds,
+        totalBranches: before.totalBranches,
+      },
+      after: {
+        activeMenus: after.activeMenus,
+        totalMenus: after.totalMenus,
+        totalProducts: after.totalProducts,
+        totalAds: after.totalAds,
+        totalBranches: after.totalBranches,
+      },
+    });
+  } catch (error) {
+    logger.error("Apply free plan limits error:", error);
+    res.status(500).json({ error: "Failed to apply free plan limits" });
   }
 }

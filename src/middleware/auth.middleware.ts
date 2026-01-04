@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken, TokenPayload } from '../utils/tokenHelper';
 import { ROLES } from '../config/constants';
 import { TokenBlacklistService } from '../services/tokenBlacklist.service';
+import { getPool } from '../config/database';
+import { logger } from '../utils/logger';
 
 // Extend Express Request type
 declare global {
@@ -32,9 +34,43 @@ export async function verifyToken(req: Request, res: Response, next: NextFunctio
 
     const decoded = verifyAccessToken(token);
     req.user = decoded;
+    
+    // Check and expire subscriptions for this user automatically
+    await checkAndExpireUserSubscription(decoded.userId);
+    
     next();
   } catch (error) {
     res.status(401).json({ error: 'Invalid or expired token' });
+  }
+}
+
+/**
+ * Check and expire subscription for a specific user if needed
+ */
+async function checkAndExpireUserSubscription(userId: number): Promise<void> {
+  try {
+    const pool = await getPool();
+    
+    // Update expired subscriptions for current user only (lightweight check)
+    const result = await pool.request().query(`
+      UPDATE Subscriptions
+      SET status = 'expired'
+      OUTPUT DELETED.id, DELETED.userId
+      WHERE userId = ${userId}
+        AND status = 'active'
+        AND endDate IS NOT NULL
+        AND endDate <= GETDATE()
+    `);
+
+    // If any subscription was expired, apply downgrade limits
+    if (result.recordset.length > 0) {
+      // Import dynamically to avoid circular dependencies
+      const { SubscriptionDowngradeService } = await import('../services/subscriptionDowngrade.service');
+      await SubscriptionDowngradeService.checkAndApplyDowngrade(userId);
+    }
+  } catch (error) {
+    logger.error('Check expired subscription error:', error);
+    // Don't block the request if subscription check fails
   }
 }
 

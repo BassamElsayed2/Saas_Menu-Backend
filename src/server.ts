@@ -22,7 +22,9 @@ import userRoutes from "./routes/user.routes";
 import adminRoutes from "./routes/admin.routes";
 import uploadRoutes from "./routes/upload.routes";
 import adsRoutes from "./routes/ads.routes";
+import notificationRoutes from "./routes/notification.routes";
 import { ensureUploadDirectories } from "./controllers/upload.controller";
+import { startSubscriptionScheduler } from "./services/subscriptionNotificationService";
 
 logger.debug("Environment check after loading:", {
   NODE_ENV: process.env.NODE_ENV,
@@ -139,6 +141,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api", adsRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
@@ -176,6 +179,9 @@ async function startServer() {
 
     // Start cleanup service
     CleanupService.start();
+
+    // Start subscription notification scheduler
+    startSubscriptionScheduler();
 
     app.listen(PORT, () => {
       logger.info(`🚀 Server is running on port ${PORT}`);

@@ -19,7 +19,9 @@ export async function checkMenuLimit(
         SELECT s.planId, p.maxMenus, p.name as planName
         FROM Subscriptions s
         JOIN Plans p ON s.planId = p.id
-        WHERE s.userId = @userId AND s.status = 'active'
+        WHERE s.userId = @userId 
+          AND s.status = 'active' 
+          AND (s.endDate IS NULL OR s.endDate > GETDATE())
         ORDER BY s.startDate DESC
       `);
 
@@ -74,7 +76,9 @@ export async function checkProductLimit(
       .query(`
         SELECT p.maxProductsPerMenu, p.name as planName
         FROM Menus m
-        JOIN Subscriptions s ON m.userId = s.userId AND s.status = 'active'
+        JOIN Subscriptions s ON m.userId = s.userId 
+          AND s.status = 'active' 
+          AND (s.endDate IS NULL OR s.endDate > GETDATE())
         JOIN Plans p ON s.planId = p.id
         WHERE m.id = @menuId AND m.userId = @userId
       `);

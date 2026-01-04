@@ -260,6 +260,57 @@ export async function upgradePlan(req: Request, res: Response): Promise<void> {
   }
 }
 
+// Get user subscription
+export async function getSubscription(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const pool = await getPool();
+
+    const result = await pool
+      .request()
+      .input('userId', sql.Int, userId)
+      .query(`
+        SELECT 
+          s.id, s.userId, s.planId, s.status, s.startDate, s.endDate, 
+          s.billingCycle, s.amount, s.createdAt,
+          p.name as planName
+        FROM Subscriptions s
+        LEFT JOIN Plans p ON s.planId = p.id
+        WHERE s.userId = @userId 
+          AND s.status = 'active' 
+          AND (s.endDate IS NULL OR s.endDate > GETDATE())
+        ORDER BY s.createdAt DESC
+      `);
+
+    if (result.recordset.length === 0) {
+      // Return default free subscription if no active subscription found
+      res.json({ 
+        subscription: {
+          plan: 'Free',
+          planName: 'Free',
+          status: 'active',
+          billingCycle: 'free',
+          startDate: null,
+          endDate: null,
+          amount: 0
+        }
+      });
+      return;
+    }
+
+    const subscription = result.recordset[0];
+    res.json({ 
+      subscription: {
+        ...subscription,
+        plan: subscription.planName || 'Free'
+      }
+    });
+  } catch (error) {
+    logger.error('Get subscription error:', error);
+    res.status(500).json({ error: 'Failed to get subscription' });
+  }
+}
+
 // Delete account
 export async function deleteAccount(req: Request, res: Response): Promise<void> {
   try {
