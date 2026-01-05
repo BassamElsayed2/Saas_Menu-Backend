@@ -1,0 +1,43 @@
+====================================
+HOW TO FORCE COOLIFY TO USE DOCKERFILE
+====================================
+
+IMPORTANT: Coolify is currently using Nixpacks (auto-detection).
+You MUST change this in Coolify settings!
+
+STEPS:
+------
+
+1. Open Coolify Dashboard
+2. Go to your Backend Application
+3. Click on "Configuration" or "Settings" tab
+4. Find "Build Pack" or "Builder" setting
+5. Change from "Nixpacks" to "Dockerfile"
+6. In "Dockerfile Location" field, enter: Dockerfile
+7. Leave "Base Directory" empty (or set to "back-end" if at repo root)
+8. Click "Save"
+9. Click "Redeploy"
+
+SCREENSHOT GUIDE:
+-----------------
+Look for options like:
+- [ ] Nixpacks (Auto)  ← UNCHECK THIS
+- [x] Dockerfile       ← CHECK THIS
+
+Or dropdown:
+Build Pack: [Dockerfile ▼]  ← Select this
+
+====================================
+IF YOU CAN'T FIND THIS OPTION
+====================================
+
+Alternative: Delete the application and create new one:
+1. When creating new resource
+2. Select "Docker Image" 
+3. Choose your Git repo
+4. SELECT "Dockerfile" as build method
+5. Set Dockerfile path to: Dockerfile
+6. Continue with setup
+
+====================================
+

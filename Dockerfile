@@ -1,24 +1,40 @@
 # Use official Node LTS
-FROM node:20
+FROM node:20-alpine
+
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
 
 # Set working directory
 WORKDIR /app
 
-# Copy package.json and lockfile first (for caching)
+# Copy package files
 COPY package.json package-lock.json ./
 
-# Install dependencies
-RUN npm install --omit=dev
+# Install ALL dependencies (including devDependencies)
+RUN npm install && \
+    echo "✅ All dependencies installed (including TypeScript)"
 
-# Copy the source code and tsconfig
+# Copy source code
 COPY tsconfig.json ./
 COPY src ./src
+COPY database ./database
+COPY scripts ./scripts
 
-# Build the TypeScript project
-RUN npx tsc -p tsconfig.json
+# Build TypeScript
+RUN echo "🔨 Building TypeScript..." && \
+    npm run build && \
+    echo "✅ Build complete" && \
+    ls -la dist/
 
-# Expose the port
+# Remove dev dependencies after build to reduce image size
+RUN npm prune --production && \
+    echo "✅ Production dependencies only"
+
+# Create upload directories
+RUN mkdir -p uploads/logos uploads/menu-items uploads/ads uploads/categories logs
+
+# Expose port
 EXPOSE 4021
 
-# Start the app
-CMD ["node", "dist/index.js"]
+# Start server
+CMD ["node", "dist/server.js"]
