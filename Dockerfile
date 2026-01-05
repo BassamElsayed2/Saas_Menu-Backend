@@ -1,37 +1,24 @@
-# ----------------------------
-# Base image
-# ----------------------------
+# Use official Node LTS
 FROM node:20
 
 # Set working directory
 WORKDIR /app
 
-# ----------------------------
-# Install dependencies
-# ----------------------------
-# Copy only package files first for caching
+# Copy package.json and lockfile first (for caching)
 COPY package.json package-lock.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm install --omit=dev
 
-# ----------------------------
-# Copy source code and tsconfig
-# ----------------------------
+# Copy the source code and tsconfig
 COPY tsconfig.json ./
 COPY src ./src
 
-# ----------------------------
 # Build the TypeScript project
-# ----------------------------
-RUN npm run build
+RUN npx tsc -p tsconfig.json
 
-# ----------------------------
-# Expose port
-# ----------------------------
+# Expose the port
 EXPOSE 4021
 
-# ----------------------------
 # Start the app
-# ----------------------------
-CMD ["npm", "run", "start"]
+CMD ["node", "dist/index.js"]
