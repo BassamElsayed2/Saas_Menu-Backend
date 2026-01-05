@@ -14,7 +14,7 @@ services:
 
     # Environment variables
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: 4021
 
       # Database (SQL Server)
