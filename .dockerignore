@@ -57,8 +57,6 @@ docker-compose*.yml
 uploads/*
 !uploads/.gitkeep
 
-# Development files
-src
-tsconfig.json
+# Development files (keep src and tsconfig for build!)
 jest.config.js
 
