@@ -4,38 +4,70 @@ Backend API مبني بـ Node.js + TypeScript + Express + SQL Server
 
 ## 🚀 Quick Start
 
+### Development
+
 ```bash
 # Install dependencies
 cd back-end
 npm install
 
 # Setup environment variables
-# Copy content from CREATE_ENV_FILES.md to .env.development
+cp .env.example .env.development
+# Edit .env.development with your configuration
 
 # Run in development
 npm run dev
+```
 
-# Build for production
+### Production
+
+```bash
+# Install dependencies
+npm install --production
+
+# Setup environment variables
+cp .env.example .env.production
+# Edit .env.production with your production configuration
+
+# Build and start
 npm run build
 npm start
+```
+
+Generate JWT secrets:
+
+```bash
+npm run generate:secret
 ```
 
 ## 📁 Project Structure
 
 ```
 back-end/
-├── src/
-│   ├── config/          # Database, Email, Constants
-│   ├── controllers/     # Business logic (7 files)
-│   ├── routes/          # API routes (7 files)
-│   ├── middleware/      # Auth, Validation, Rate limiting
-│   ├── services/        # Email service
-│   ├── utils/           # Helpers, Logger
-│   └── server.ts        # Main server file
+├── src/                     # TypeScript source code
+│   ├── config/              # Database, Email, Constants
+│   ├── controllers/         # Business logic
+│   ├── routes/              # API routes
+│   ├── middleware/          # Auth, Validation, Rate limiting
+│   ├── services/            # Business services
+│   ├── utils/               # Helpers, Logger
+│   ├── validators/          # Input validation schemas
+│   ├── inngest/             # Background jobs
+│   └── server.ts            # Main server file
+├── dist/                    # Compiled JavaScript (after build)
 ├── database/
-│   └── schema.sql       # Database schema
-├── uploads/             # Uploaded images (auto-created)
-├── logs/                # Winston logs (auto-created)
+│   ├── schema.sql           # Database schema
+│   └── migrations/          # Database migrations
+├── scripts/                 # Utility scripts
+│   ├── create-admin.js      # Create admin user
+│   ├── create-monthly-user.js
+│   ├── expire-subscriptions.js
+│   └── generate-password-hash.js
+├── uploads/                 # Uploaded images (auto-created)
+│   ├── logos/
+│   ├── menu-items/
+│   ├── categories/
+│   └── ads/
 └── package.json
 ```
 
@@ -127,42 +159,84 @@ back-end/
 
 ## 🔒 Security Features
 
-✅ JWT Authentication
+✅ JWT Authentication with refresh tokens
 ✅ Password hashing (bcrypt)
 ✅ Rate limiting (express-rate-limit)
-✅ Input validation (express-validator)
-✅ SQL Injection protection
+✅ Input validation (Zod + express-validator)
+✅ SQL Injection protection (parameterized queries)
 ✅ XSS protection (helmet)
 ✅ CORS configured
-✅ IDOR protection
+✅ IDOR protection (ownership checks)
+✅ File upload validation (type, size, dimensions)
+✅ SQL Server encryption support
+
+### Production Security Checklist
+
+Before deploying to production, ensure:
+
+- [ ] Strong JWT secrets generated (min 64 characters)
+- [ ] Database encryption enabled (`DB_ENCRYPT=true`)
+- [ ] HTTPS enabled on server/reverse proxy
+- [ ] CORS restricted to your frontend domain only
+- [ ] Database user has minimal required permissions
+- [ ] File upload directory has proper permissions
+- [ ] Rate limiting enabled for all endpoints
+- [ ] Error messages don't expose sensitive info
+- [ ] Database backups configured
+- [ ] Monitoring and alerting setup
+- [ ] Environment variables secured (not in git)
+- [ ] Admin accounts have strong passwords
 
 ## 📝 Environment Variables
 
-Check `CREATE_ENV_FILES.md` for complete list.
-
-Required variables:
+Create `.env.production` file with the following variables:
 
 ```env
-# Server
+# Server Configuration
+NODE_ENV=production
 PORT=5000
-NODE_ENV=development
-FRONTEND_URL=http://localhost:3000
+API_URL=https://api.yourdomain.com
+FRONTEND_URL=https://yourdomain.com
 
-# Database
-DB_SERVER=localhost
-DB_DATABASE=saas_menu
-DB_USER=sa
-DB_PASSWORD=your_password
+# Database Configuration (SQL Server)
+DB_HOST=your-database-host
+DB_PORT=1433
+DB_NAME=your-database-name
+DB_USER=your-database-user
+DB_PASSWORD=your-database-password
+DB_ENCRYPT=true
+DB_TRUST_SERVER_CERTIFICATE=false
 
-# JWT
-JWT_ACCESS_SECRET=your_secret_here
-JWT_REFRESH_SECRET=your_refresh_secret_here
+# JWT Secrets (Generate using: npm run generate:secret)
+JWT_ACCESS_SECRET=your-jwt-access-secret-min-64-chars
+JWT_REFRESH_SECRET=your-jwt-refresh-secret-min-64-chars
+JWT_ACCESS_EXPIRY=15m
+JWT_REFRESH_EXPIRY=7d
 
-# Email (Mailtrap)
-EMAIL_HOST=smtp.mailtrap.io
-EMAIL_PORT=2525
-EMAIL_USER=your_username
-EMAIL_PASS=your_password
+# Email Configuration
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_SECURE=false
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your-app-password
+EMAIL_FROM=noreply@yourdomain.com
+
+# Upload Configuration
+MAX_FILE_SIZE=5242880
+UPLOAD_PATH=./uploads
+
+# Inngest Configuration
+INNGEST_EVENT_KEY=your-inngest-event-key
+INNGEST_SIGNING_KEY=your-inngest-signing-key
+
+# CORS Configuration
+ALLOWED_ORIGINS=https://yourdomain.com
+
+# Security
+BCRYPT_ROUNDS=10
+
+# Logging
+LOG_LEVEL=info
 ```
 
 ## 🧪 Testing
@@ -229,22 +303,95 @@ Use `?locale=ar` or `?locale=en` query parameter.
 
 ## 🔍 Logging
 
-Winston logger saves to:
+Winston logger configuration:
 
-- `logs/error.log` - Error logs
-- `logs/combined.log` - All logs
-- Console output (development)
+- **Development**: Console output with colors
+- **Production**:
+  - `logs/error.log` - Error logs only
+  - `logs/combined.log` - All logs
+  - `logs/exceptions.log` - Uncaught exceptions
+  - `logs/rejections.log` - Unhandled promise rejections
 
-## 🚢 Deployment
+Log levels: `error`, `warn`, `info`, `debug`
 
-Recommended: Coolify with Node.js
+## 🚢 Production Deployment
+
+### Prerequisites
+
+1. ✅ Node.js 18+ installed
+2. ✅ SQL Server database setup
+3. ✅ Environment variables configured
+4. ✅ Domain/subdomain configured
+
+### Deployment Steps
 
 ```bash
-# Build
+# 1. Clone repository
+git clone <your-repo-url>
+cd back-end
+
+# 2. Install dependencies
+npm install --production
+
+# 3. Setup environment
+cp .env.example .env.production
+# Edit .env.production with your production configuration
+
+# 4. Build TypeScript to JavaScript
 npm run build
 
-# Start production
-NODE_ENV=production node dist/server.js
+# 5. Run database migrations
+# Execute database/schema.sql on your production database
+
+# 6. Create admin user
+node scripts/create-admin.js
+
+# 7. Start production server
+npm start
+```
+
+### Using PM2 (Recommended)
+
+```bash
+# Install PM2
+npm install -g pm2
+
+# Start application
+pm2 start dist/server.js --name saas-menu-api
+
+# Enable auto-restart on system reboot
+pm2 startup
+pm2 save
+
+# Monitor logs
+pm2 logs saas-menu-api
+
+# Restart application
+pm2 restart saas-menu-api
+```
+
+### Using Docker
+
+```bash
+# Build image
+docker build -t saas-menu-api .
+
+# Run container
+docker run -d \
+  --name saas-menu-api \
+  -p 5000:5000 \
+  --env-file .env.production \
+  saas-menu-api
+```
+
+### Health Check
+
+```bash
+# Check if API is running
+curl http://localhost:5000/health
+
+# Expected response:
+# {"status":"ok","timestamp":"2024-01-01T00:00:00.000Z"}
 ```
 
 ## 📖 API Documentation
@@ -277,8 +424,48 @@ See `BACKEND_API_COMPLETE.md` for complete API documentation with examples.
 3. Update documentation
 4. Submit PR
 
+## 🔧 Production Optimization
+
+### Performance Tips
+
+1. **Enable compression**: Use gzip compression in production
+2. **Optimize images**: Sharp automatically optimizes images to WebP
+3. **Connection pooling**: Database connection pool is pre-configured
+4. **Caching**: Consider adding Redis for session/cache management
+5. **CDN**: Serve static files (uploads) through CDN
+
+### Monitoring
+
+Recommended monitoring tools:
+
+- **Application**: PM2, New Relic, or Datadog
+- **Database**: SQL Server Management Studio
+- **Logs**: Winston logs + centralized logging (e.g., ELK stack)
+- **Uptime**: UptimeRobot or Pingdom
+
+### Backup Strategy
+
+```bash
+# Database backup (SQL Server)
+sqlcmd -S localhost -U sa -P yourpassword \
+  -Q "BACKUP DATABASE [saas_menu] TO DISK = '/backup/saas_menu.bak'"
+
+# Uploads backup
+tar -czf uploads-backup-$(date +%Y%m%d).tar.gz uploads/
+```
+
+## 📞 Support
+
+For issues or questions:
+
+- Check troubleshooting section above
+- Review API documentation
+- Check logs in `logs/` directory
+
 ---
 
-**Status**: ✅ Backend 100% Complete
+**Status**: ✅ Production Ready
 
-**Last Updated**: 22 December 2024
+**Version**: 1.0.0
+
+**Last Updated**: January 2025
