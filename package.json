@@ -8,16 +8,7 @@
     "build": "tsc",
     "start": "cross-env NODE_ENV=production node dist/server.js",
     "start:dev": "cross-env NODE_ENV=development node dist/server.js",
-    "create-admin": "node scripts/create-admin.js",
-    "create-monthly-user": "node scripts/create-monthly-user.js",
-    "generate:secret": "node -e \"console.log('JWT_ACCESS_SECRET=' + require('crypto').randomBytes(64).toString('hex')); console.log('JWT_REFRESH_SECRET=' + require('crypto').randomBytes(64).toString('hex'));\"",
-    "docker:build": "docker build -t saas-menu-api .",
-    "docker:run": "docker run -d -p 5000:5000 --env-file .env.production --name saas-menu-api saas-menu-api",
-    "docker:stop": "docker stop saas-menu-api && docker rm saas-menu-api",
-    "docker:logs": "docker logs -f saas-menu-api",
-    "compose:up": "docker-compose up -d",
-    "compose:down": "docker-compose down",
-    "compose:logs": "docker-compose logs -f"
+    "generate:secret": "node -e \"console.log('JWT_ACCESS_SECRET=' + require('crypto').randomBytes(64).toString('hex')); console.log('JWT_REFRESH_SECRET=' + require('crypto').randomBytes(64).toString('hex'));\""
   },
   "keywords": [
     "saas",
