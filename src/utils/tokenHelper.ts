@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
 export interface TokenPayload {
+  id: number;
   userId: number;
   email: string;
   role: string;
@@ -44,15 +45,13 @@ export function validateJWTSecrets(): void {
 }
 
 export function generateAccessToken(payload: TokenPayload): string {
-  return jwt.sign(payload, process.env.JWT_ACCESS_SECRET!, {
-    expiresIn: process.env.JWT_ACCESS_EXPIRY || "15m", // 15 minutes for security
-  });
+  const expiresIn = process.env.JWT_ACCESS_EXPIRY || "15m";
+  return jwt.sign(payload, process.env.JWT_ACCESS_SECRET!, { expiresIn } as jwt.SignOptions);
 }
 
 export function generateRefreshToken(payload: TokenPayload): string {
-  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET!, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRY || "7d",
-  });
+  const expiresIn = process.env.JWT_REFRESH_EXPIRY || "7d";
+  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET!, { expiresIn } as jwt.SignOptions);
 }
 
 export function verifyAccessToken(token: string): TokenPayload {

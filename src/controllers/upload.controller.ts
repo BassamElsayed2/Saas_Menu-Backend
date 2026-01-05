@@ -74,14 +74,14 @@ export async function uploadImage(req: Request, res: Response): Promise<void> {
     const fileType = await fileTypeFromBuffer(req.file.buffer);
     
     // Check if it's a favicon (ICO file)
-    const isIcon = fileType?.mime === 'image/x-icon' || fileType?.mime === 'image/vnd.microsoft.icon' || req.file.originalname.endsWith('.ico');
+    const isIcon = fileType?.mime === 'image/x-icon' || req.file.originalname.endsWith('.ico');
     
     if (!fileType && !isIcon) {
       res.status(400).json({ error: 'Invalid file type detected' });
       return;
     }
 
-    if (!isIcon && !ALLOWED_TYPES.includes(fileType.mime)) {
+    if (!isIcon && fileType && !ALLOWED_TYPES.includes(fileType.mime)) {
       res.status(400).json({ error: 'Invalid file type detected' });
       return;
     }

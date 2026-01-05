@@ -73,7 +73,7 @@ export async function getUserNotifications(userId: number, limit: number = 50) {
         ORDER BY createdAt DESC
       `);
 
-    return result.recordset.map(notification => ({
+    return result.recordset.map((notification: any) => ({
       ...notification,
       metadata: notification.metadata ? JSON.parse(notification.metadata) : null
     }));

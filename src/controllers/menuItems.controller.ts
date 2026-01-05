@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import sql from 'mssql';
+import { getPool, sql } from '../config/database';
 
 // Get all menu items for a specific menu
 export const getMenuItems = async (req: Request, res: Response) => {
@@ -7,7 +7,7 @@ export const getMenuItems = async (req: Request, res: Response) => {
     const { menuId } = req.params;
     const { locale = 'en' } = req.query;
 
-    const pool = await sql.connect();
+    const pool = await getPool();
 
     // Check if menu exists and belongs to user
     const menuResult = await pool.request()
@@ -70,7 +70,7 @@ export const getMenuItem = async (req: Request, res: Response) => {
   try {
     const { menuId, itemId } = req.params;
 
-    const pool = await sql.connect();
+    const pool = await getPool();
 
     // Check if menu exists and belongs to user
     const menuResult = await pool.request()
@@ -193,7 +193,7 @@ export const createMenuItem = async (req: Request, res: Response) => {
       });
     }
 
-    const pool = await sql.connect();
+    const pool = await getPool();
 
     // Check if menu exists and belongs to user
     const menuResult = await pool.request()
@@ -285,7 +285,7 @@ export const updateMenuItem = async (req: Request, res: Response) => {
       translations
     } = req.body;
 
-    const pool = await sql.connect();
+    const pool = await getPool();
 
     // Check if menu exists and belongs to user
     const menuResult = await pool.request()
@@ -410,7 +410,7 @@ export const deleteMenuItem = async (req: Request, res: Response) => {
   try {
     const { menuId, itemId } = req.params;
 
-    const pool = await sql.connect();
+    const pool = await getPool();
 
     // Check if menu exists and belongs to user
     const menuResult = await pool.request()

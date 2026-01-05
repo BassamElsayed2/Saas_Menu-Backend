@@ -22,14 +22,14 @@ export const validateRequest = (
       if (source === 'body') {
         req.body = validated;
       } else {
-        req.query = validated;
+        req.query = validated as any;
       }
       
       next();
     } catch (error) {
       if (error instanceof ZodError) {
         // Format Zod errors into a readable format
-        const errors = error.errors?.map((err) => ({
+        const errors = error.issues?.map((err: any) => ({
           field: err.path.join('.'),
           message: err.message,
         })) || [];

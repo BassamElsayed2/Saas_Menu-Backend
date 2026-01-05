@@ -15,17 +15,13 @@ const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).+$/;
  */
 export const signupSchema = z.object({
   email: z
-    .string({
-      required_error: 'Email is required',
-    })
+    .string({ message: 'Email is required' })
     .email('Invalid email format')
     .toLowerCase()
     .trim(),
   
   password: z
-    .string({
-      required_error: 'Password is required',
-    })
+    .string({ message: 'Password is required' })
     .min(8, 'Password must be at least 8 characters')
     .regex(
       passwordRegex,
@@ -33,17 +29,13 @@ export const signupSchema = z.object({
     ),
   
   name: z
-    .string({
-      required_error: 'Name is required',
-    })
+    .string({ message: 'Name is required' })
     .trim()
     .min(1, 'Name cannot be empty')
     .max(255, 'Name is too long'),
   
   phoneNumber: z
-    .string({
-      required_error: 'Phone number is required',
-    })
+    .string({ message: 'Phone number is required' })
     .trim()
     .regex(phoneRegex, 'Invalid phone number format')
     .min(8, 'Phone number is too short')
@@ -81,17 +73,13 @@ export const checkAvailabilitySchema = z.object({
  */
 export const loginSchema = z.object({
   email: z
-    .string({
-      required_error: 'Email is required',
-    })
+    .string({ message: 'Email is required' })
     .email('Invalid email format')
     .toLowerCase()
     .trim(),
   
   password: z
-    .string({
-      required_error: 'Password is required',
-    })
+    .string({ message: 'Password is required' })
     .min(1, 'Password is required'),
 });
 

@@ -245,6 +245,7 @@ export async function login(req: Request, res: Response): Promise<void> {
 
     // Generate tokens
     const tokenPayload = {
+      id: user.id,
       userId: user.id,
       email: user.email,
       role: user.role,
@@ -606,6 +607,7 @@ export async function refreshToken(req: Request, res: Response): Promise<void> {
 
     // Generate new tokens
     const tokenPayload = {
+      id: user.id,
       userId: user.id,
       email: user.email,
       role: user.role,
