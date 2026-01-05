@@ -166,9 +166,10 @@ export async function getMenuById(req: Request, res: Response): Promise<void> {
     const result = await pool
       .request()
       .input("id", sql.Int, parseInt(id))
-      .input("userId", sql.Int, userId).query(`
+      .input("userId", sql.Int, userId)      .query(`
         SELECT 
           m.id, m.userId, m.slug, m.logo, m.theme, m.isActive, m.createdAt,
+          ISNULL(m.currency, 'SAR') as currency,
           ar.name as nameAr, ar.description as descriptionAr,
           en.name as nameEn, en.description as descriptionEn
         FROM Menus m
@@ -221,6 +222,7 @@ export async function updateMenu(req: Request, res: Response): Promise<void> {
       descriptionEn,
       logo,
       theme,
+      currency,
       isActive,
     } = req.body;
 
@@ -250,6 +252,11 @@ export async function updateMenu(req: Request, res: Response): Promise<void> {
       if (theme !== undefined) {
         menuUpdates.push("theme = @theme");
         menuRequest.input("theme", sql.NVarChar, theme);
+      }
+
+      if (currency !== undefined) {
+        menuUpdates.push("currency = @currency");
+        menuRequest.input("currency", sql.NVarChar(3), currency);
       }
 
       if (isActive !== undefined) {

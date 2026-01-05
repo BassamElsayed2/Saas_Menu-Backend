@@ -60,6 +60,7 @@ router.put(
     body('descriptionEn').optional().isString().trim().isLength({ max: 1000 }),
     body('logo').optional().isString().isLength({ max: 500 }),
     body('theme').optional().isIn(['default', 'template2', 'template3']),
+    body('currency').optional().isString().isLength({ min: 3, max: 3 }),
     body('isActive').optional().isBoolean(),
   ]),
   menuController.updateMenu
