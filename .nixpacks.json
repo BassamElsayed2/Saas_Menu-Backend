@@ -1,0 +1,13 @@
+{
+  "phases": {
+    "install": {
+      "cmds": ["npm ci"]
+    },
+    "build": {
+      "cmds": ["npm run build"]
+    },
+    "start": {
+      "cmd": "node dist/server.js"
+    }
+  }
+}

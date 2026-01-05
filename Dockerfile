@@ -52,12 +52,12 @@ RUN mkdir -p uploads/logos uploads/menu-items uploads/ads uploads/categories log
 # Switch to non-root user
 USER nodejs
 
-# Health check
+# Health check (uses PORT env var, defaults to 5000)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
     CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 5000) + '/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1);})"
 
-# Expose port
-EXPOSE 5000
+# Expose port (will be overridden by PORT env var)
+EXPOSE 4021 5000
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
