@@ -42,24 +42,40 @@ validateJWTSecrets();
 const app: Application = express();
 const PORT = Number(process.env.PORT) || 4021;
 
-// Trust proxy (Cloudflare / Coolify / Nginx)
+// ------------------------------------------------------------------
+// ✅ Trust proxy (REQUIRED for Cloudflare & Coolify)
 app.set("trust proxy", 1);
 
 // ------------------------------------------------------------------
-// Security
+// Security headers
 app.use(helmet());
 
 // ------------------------------------------------------------------
-// ✅ FIXED CORS (Cloudflare + curl + subdomains safe)
+// ✅ HTTPS FIX (Cloudflare / SSL 526 / redirect loop fix)
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV !== "production") return next();
+
+  const proto = req.headers["x-forwarded-proto"];
+
+  // Allow internal calls (health checks, curl, docker)
+  if (!proto) return next();
+
+  if (proto !== "https") {
+    return res.redirect(301, `https://${req.headers.host}${req.originalUrl}`);
+  }
+
+  next();
+});
+
+// ------------------------------------------------------------------
+// ✅ CORS (subdomains + curl + frontend safe)
 app.use(
   cors({
     origin: (origin, callback) => {
-      // ✅ Allow server-to-server, curl, Postman, health checks
-      if (!origin) {
-        return callback(null, true);
-      }
+      // Allow curl, Postman, server-to-server
+      if (!origin) return callback(null, true);
 
-      // ✅ Allow localhost in development
+      // Allow localhost in development
       if (process.env.NODE_ENV === "development") {
         if (
           origin.startsWith("http://localhost") ||
@@ -69,7 +85,7 @@ app.use(
         }
       }
 
-      // ✅ Allow ensmenu.com and ALL subdomains (*.ensmenu.com)
+      // Allow ensmenu.com + *.ensmenu.com
       try {
         const url = new URL(origin);
         if (
@@ -78,13 +94,12 @@ app.use(
         ) {
           return callback(null, true);
         }
-      } catch (err) {
-        logger.warn("Invalid CORS origin format:", origin);
+      } catch {
+        logger.warn("Invalid CORS origin:", origin);
         return callback(null, false);
       }
 
-      // ❌ Block everything else (NO ERROR THROW)
-      logger.warn(`🔴 CORS blocked request from origin: ${origin}`);
+      logger.warn(`🔴 CORS blocked: ${origin}`);
       return callback(null, false);
     },
     credentials: true,
