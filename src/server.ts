@@ -1,0 +1,202 @@
+// MUST be imported first to load environment variables
+import "./env";
+
+import express, { Application } from "express";
+import cors from "cors";
+import helmet from "helmet";
+import path from "path";
+
+import { getPool, closePool } from "./config/database";
+import { testEmailConnection } from "./config/email";
+import { logger } from "./utils/logger";
+import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
+import { validateJWTSecrets } from "./utils/tokenHelper";
+import { CleanupService } from "./services/cleanup.service";
+import { ensureUploadDirectories } from "./controllers/upload.controller";
+import { startSubscriptionScheduler } from "./services/subscriptionNotificationService";
+
+// Routes
+import authRoutes from "./routes/auth.routes";
+import publicRoutes from "./routes/public.routes";
+import menuRoutes from "./routes/menu.routes";
+import menuItemsRoutes from "./routes/menuItems.routes";
+import categoryRoutes from "./routes/category.routes";
+import userRoutes from "./routes/user.routes";
+import adminRoutes from "./routes/admin.routes";
+import uploadRoutes from "./routes/upload.routes";
+import adsRoutes from "./routes/ads.routes";
+import notificationRoutes from "./routes/notification.routes";
+
+// ------------------------------------------------------------------
+
+logger.debug("Environment check after loading:", {
+  NODE_ENV: process.env.NODE_ENV,
+  PORT: process.env.PORT,
+  DB_HOST: process.env.DB_HOST,
+  DB_NAME: process.env.DB_NAME,
+});
+
+// Validate JWT secrets
+validateJWTSecrets();
+
+const app: Application = express();
+const PORT = Number(process.env.PORT) || 4021;
+
+// Trust proxy (Cloudflare / Coolify / Nginx)
+app.set("trust proxy", 1);
+
+// ------------------------------------------------------------------
+// Security
+app.use(helmet());
+
+// ------------------------------------------------------------------
+// ✅ FIXED CORS (Cloudflare + curl + subdomains safe)
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // ✅ Allow server-to-server, curl, Postman, health checks
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      // ✅ Allow localhost in development
+      if (process.env.NODE_ENV === "development") {
+        if (
+          origin.startsWith("http://localhost") ||
+          origin.startsWith("http://127.0.0.1")
+        ) {
+          return callback(null, true);
+        }
+      }
+
+      // ✅ Allow ensmenu.com and ALL subdomains (*.ensmenu.com)
+      try {
+        const url = new URL(origin);
+        if (
+          url.hostname === "ensmenu.com" ||
+          url.hostname.endsWith(".ensmenu.com")
+        ) {
+          return callback(null, true);
+        }
+      } catch (err) {
+        logger.warn("Invalid CORS origin format:", origin);
+        return callback(null, false);
+      }
+
+      // ❌ Block everything else (NO ERROR THROW)
+      logger.warn(`🔴 CORS blocked request from origin: ${origin}`);
+      return callback(null, false);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
+// ------------------------------------------------------------------
+// Body parsers
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// ------------------------------------------------------------------
+// Static uploads
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+  },
+  express.static(path.join(__dirname, "../uploads"))
+);
+
+// ------------------------------------------------------------------
+// Request logging
+app.use((req, res, next) => {
+  logger.info(`${req.method} ${req.url} - ${req.ip}`);
+  next();
+});
+
+// ------------------------------------------------------------------
+// Health check
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ------------------------------------------------------------------
+// API Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/public", publicRoutes);
+app.use("/api/menus", menuRoutes);
+app.use("/api/menus", menuItemsRoutes);
+app.use("/api", categoryRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/upload", uploadRoutes);
+app.use("/api", adsRoutes);
+app.use("/api/notifications", notificationRoutes);
+
+// ------------------------------------------------------------------
+// 404 + Error handlers
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+// ------------------------------------------------------------------
+// Server startup
+async function startServer() {
+  try {
+    await ensureUploadDirectories();
+    logger.info("✅ Upload directories initialized");
+
+    try {
+      await getPool();
+      logger.info("✅ Database connected successfully");
+    } catch (dbError) {
+      logger.error("❌ Database connection failed:", dbError);
+    }
+
+    testEmailConnection()
+      .then(() => logger.info("✅ Email connection OK"))
+      .catch(() => logger.warn("⚠️ Email disabled"));
+
+    CleanupService.start();
+    startSubscriptionScheduler();
+
+    app.listen(PORT, () => {
+      logger.info(`🚀 Server running on port ${PORT}`);
+      logger.info(`🌍 Environment: ${process.env.NODE_ENV}`);
+    });
+  } catch (err) {
+    logger.error("❌ Server failed to start:", err);
+    process.exit(1);
+  }
+}
+
+// ------------------------------------------------------------------
+// Graceful shutdown
+process.on("SIGTERM", async () => {
+  logger.info("SIGTERM received");
+  CleanupService.stop();
+  await closePool();
+  process.exit(0);
+});
+
+process.on("SIGINT", async () => {
+  logger.info("SIGINT received");
+  CleanupService.stop();
+  await closePool();
+  process.exit(0);
+});
+
+process.on("unhandledRejection", (reason) => {
+  logger.error("Unhandled Rejection:", reason);
+});
+
+// ------------------------------------------------------------------
+startServer();
+
+export default app;
