@@ -226,6 +226,22 @@ export const getPublicMenu = async (req: Request, res: Response) => {
       });
     }
 
+    // Get menu customizations if available
+    const customizationsResult = await pool
+      .request()
+      .input("menuId", sql.Int, menu.id)
+      .query(`
+        SELECT 
+          primaryColor, secondaryColor, backgroundColor, textColor,
+          heroTitleAr, heroSubtitleAr, heroTitleEn, heroSubtitleEn
+        FROM MenuCustomizations
+        WHERE menuId = @menuId
+      `);
+
+    const customizations = customizationsResult.recordset.length > 0
+      ? customizationsResult.recordset[0]
+      : null;
+
     res.json({
       success: true,
       data: {
@@ -241,6 +257,7 @@ export const getPublicMenu = async (req: Request, res: Response) => {
           locale: menu.locale,
           ownerPlanType: menu.ownerPlanType || "free", // Add owner's plan type
         },
+        customizations,
         categories: categories, // Add categories array
         items: itemsResult.recordset,
         itemsByCategory,

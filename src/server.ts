@@ -75,13 +75,20 @@ app.use(
       // Allow curl, Postman, server-to-server
       if (!origin) return callback(null, true);
 
-      // Allow localhost in development
+      // Allow localhost in development (including subdomains like test.localhost)
       if (process.env.NODE_ENV === "development") {
-        if (
-          origin.startsWith("http://localhost") ||
-          origin.startsWith("http://127.0.0.1")
-        ) {
-          return callback(null, true);
+        try {
+          const url = new URL(origin);
+          if (
+            url.hostname === "localhost" ||
+            url.hostname.endsWith(".localhost") ||
+            url.hostname === "127.0.0.1"
+          ) {
+            return callback(null, true);
+          }
+        } catch {
+          // Invalid URL, reject
+          return callback(null, false);
         }
       }
 

@@ -6,6 +6,7 @@ import { requireAuth } from "../middleware/auth.middleware";
 import { checkMenuLimit } from "../middleware/planLimits";
 import menuItemRoutes from "./menuItem.routes";
 import branchRoutes from "./branch.routes";
+import menuCustomizationRoutes from "./menuCustomization.routes";
 
 const router = Router();
 
@@ -39,14 +40,7 @@ router.post(
     body("logo").optional().isString().isLength({ max: 500 }),
     body("theme")
       .optional()
-      .isIn([
-        "default",
-        "classic",
-        "modern",
-        "minimal",
-        "template2",
-        "template3",
-      ]),
+      .isIn(["default", "neon", "modern", "minimal", "template2", "template3"]),
   ]),
   menuController.createMenu
 );
@@ -83,14 +77,7 @@ router.put(
       .isLength({ max: 500 }),
     body("theme")
       .optional()
-      .isIn([
-        "default",
-        "classic",
-        "modern",
-        "minimal",
-        "template2",
-        "template3",
-      ]),
+      .isIn(["default", "neon", "modern", "minimal", "template2", "template3"]),
     body("currency").optional().isString().isLength({ min: 3, max: 3 }),
     body("isActive").optional().isBoolean(),
   ]),
@@ -110,5 +97,6 @@ router.delete("/:id", [param("id").isInt()], menuController.deleteMenu);
 // Nested routes
 router.use("/:menuId/items", menuItemRoutes);
 router.use("/:menuId/branches", branchRoutes);
+router.use("/:menuId/customizations", menuCustomizationRoutes);
 
 export default router;

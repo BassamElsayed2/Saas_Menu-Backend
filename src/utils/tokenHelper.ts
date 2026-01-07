@@ -15,13 +15,13 @@ export function validateJWTSecrets(): void {
 
   if (!accessSecret || !refreshSecret) {
     throw new Error(
-      '🔴 SECURITY ERROR: JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be set in environment variables!'
+      "🔴 SECURITY ERROR: JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be set in environment variables!"
     );
   }
 
   // Check minimum length (256 bits = 64 hex characters)
   const minLength = 32; // 256 bits / 8 = 32 bytes minimum
-  
+
   if (accessSecret.length < minLength) {
     throw new Error(
       `🔴 SECURITY ERROR: JWT_ACCESS_SECRET is too short! Minimum ${minLength} characters required. Current: ${accessSecret.length}`
@@ -37,21 +37,23 @@ export function validateJWTSecrets(): void {
   // Warn if secrets are the same
   if (accessSecret === refreshSecret) {
     console.warn(
-      '⚠️  WARNING: JWT_ACCESS_SECRET and JWT_REFRESH_SECRET should be different for better security!'
+      "⚠️  WARNING: JWT_ACCESS_SECRET and JWT_REFRESH_SECRET should be different for better security!"
     );
   }
-
-  console.log('✅ JWT Secrets validated successfully');
 }
 
 export function generateAccessToken(payload: TokenPayload): string {
   const expiresIn = process.env.JWT_ACCESS_EXPIRY || "15m";
-  return jwt.sign(payload, process.env.JWT_ACCESS_SECRET!, { expiresIn } as jwt.SignOptions);
+  return jwt.sign(payload, process.env.JWT_ACCESS_SECRET!, {
+    expiresIn,
+  } as jwt.SignOptions);
 }
 
 export function generateRefreshToken(payload: TokenPayload): string {
   const expiresIn = process.env.JWT_REFRESH_EXPIRY || "7d";
-  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET!, { expiresIn } as jwt.SignOptions);
+  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET!, {
+    expiresIn,
+  } as jwt.SignOptions);
 }
 
 export function verifyAccessToken(token: string): TokenPayload {
@@ -64,5 +66,5 @@ export function verifyRefreshToken(token: string): TokenPayload {
 
 export function generateRandomToken(): string {
   // Use cryptographically secure random bytes instead of Math.random()
-  return crypto.randomBytes(32).toString('hex');
+  return crypto.randomBytes(32).toString("hex");
 }

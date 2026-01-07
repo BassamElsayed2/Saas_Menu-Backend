@@ -100,7 +100,7 @@ CREATE TABLE Menus (
     userId INT NOT NULL FOREIGN KEY REFERENCES Users(id) ON DELETE CASCADE,
     slug NVARCHAR(200) NOT NULL UNIQUE,
     logo NVARCHAR(500),
-    theme NVARCHAR(50) NOT NULL DEFAULT 'classic', -- 'classic', 'modern', 'dark', 'light'
+    theme NVARCHAR(50) NOT NULL DEFAULT 'default', -- 'default', 'neon', 'modern', 'minimal', etc.
     isActive BIT NOT NULL DEFAULT 1,
     createdAt DATETIME2 NOT NULL DEFAULT GETDATE(),
     updatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
