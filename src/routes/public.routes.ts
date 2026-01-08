@@ -6,6 +6,7 @@ import {
   getRecentRatings,
   getActiveAds,
   getMenuCustomAds,
+  getPublicPlans,
 } from "../controllers/public.controller";
 import { validate } from "../middleware/validation";
 import { publicLimiter } from "../middleware/rateLimiter";
@@ -62,5 +63,8 @@ router.get(
   ],
   getMenuCustomAds
 );
+
+// GET /api/public/plans - Get all active plans
+router.get("/plans", getPublicPlans);
 
 export default router;

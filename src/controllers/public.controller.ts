@@ -357,6 +357,48 @@ export const submitRating = async (req: Request, res: Response) => {
   }
 };
 
+// Get all active plans for public display (landing page)
+export const getPublicPlans = async (req: Request, res: Response) => {
+  try {
+    const pool = await getPool();
+
+    const result = await pool.request().query(`
+      SELECT 
+        id,
+        name,
+        description,
+        priceMonthly,
+        priceYearly,
+        maxMenus,
+        maxProductsPerMenu,
+        allowCustomDomain,
+        hasAds,
+        features
+      FROM Plans
+      WHERE isActive = 1
+      ORDER BY priceMonthly ASC
+    `);
+
+    // Parse features JSON for each plan
+    const plans = result.recordset.map((plan) => ({
+      ...plan,
+      features: plan.features ? JSON.parse(plan.features) : [],
+    }));
+
+    res.json({
+      success: true,
+      plans,
+    });
+  } catch (error: any) {
+    console.error("Error fetching public plans:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch plans",
+      error: error.message,
+    });
+  }
+};
+
 // Get recent ratings
 export const getRecentRatings = async (req: Request, res: Response) => {
   try {

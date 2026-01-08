@@ -17,6 +17,7 @@ import { startSubscriptionScheduler } from "./services/subscriptionNotificationS
 
 // Routes
 import authRoutes from "./routes/auth.routes";
+import googleAuthRoutes from "./routes/google-auth.routes";
 import publicRoutes from "./routes/public.routes";
 import menuRoutes from "./routes/menu.routes";
 import menuItemsRoutes from "./routes/menuItems.routes";
@@ -152,6 +153,7 @@ app.get("/health", (req, res) => {
 // ------------------------------------------------------------------
 // API Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/auth", googleAuthRoutes);
 app.use("/api/public", publicRoutes);
 app.use("/api/menus", menuRoutes);
 app.use("/api/menus", menuItemsRoutes);
