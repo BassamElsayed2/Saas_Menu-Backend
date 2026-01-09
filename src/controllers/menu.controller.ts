@@ -170,6 +170,8 @@ export async function getMenuById(req: Request, res: Response): Promise<void> {
         SELECT 
           m.id, m.userId, m.slug, m.logo, m.theme, m.isActive, m.createdAt,
           ISNULL(m.currency, 'SAR') as currency,
+          m.footerLogo, m.footerDescriptionEn, m.footerDescriptionAr,
+          m.socialFacebook, m.socialInstagram, m.socialTwitter, m.socialWhatsapp,
           ar.name as nameAr, ar.description as descriptionAr,
           en.name as nameEn, en.description as descriptionEn
         FROM Menus m
@@ -224,6 +226,13 @@ export async function updateMenu(req: Request, res: Response): Promise<void> {
       theme,
       currency,
       isActive,
+      footerLogo,
+      footerDescriptionEn,
+      footerDescriptionAr,
+      socialFacebook,
+      socialInstagram,
+      socialTwitter,
+      socialWhatsapp,
     } = req.body;
 
     await executeTransaction(async (transaction) => {
@@ -262,6 +271,41 @@ export async function updateMenu(req: Request, res: Response): Promise<void> {
       if (isActive !== undefined) {
         menuUpdates.push("isActive = @isActive");
         menuRequest.input("isActive", sql.Bit, isActive ? 1 : 0);
+      }
+
+      if (footerLogo !== undefined) {
+        menuUpdates.push("footerLogo = @footerLogo");
+        menuRequest.input("footerLogo", sql.NVarChar, footerLogo || null);
+      }
+
+      if (footerDescriptionEn !== undefined) {
+        menuUpdates.push("footerDescriptionEn = @footerDescriptionEn");
+        menuRequest.input("footerDescriptionEn", sql.NVarChar, footerDescriptionEn || null);
+      }
+
+      if (footerDescriptionAr !== undefined) {
+        menuUpdates.push("footerDescriptionAr = @footerDescriptionAr");
+        menuRequest.input("footerDescriptionAr", sql.NVarChar, footerDescriptionAr || null);
+      }
+
+      if (socialFacebook !== undefined) {
+        menuUpdates.push("socialFacebook = @socialFacebook");
+        menuRequest.input("socialFacebook", sql.NVarChar, socialFacebook || null);
+      }
+
+      if (socialInstagram !== undefined) {
+        menuUpdates.push("socialInstagram = @socialInstagram");
+        menuRequest.input("socialInstagram", sql.NVarChar, socialInstagram || null);
+      }
+
+      if (socialTwitter !== undefined) {
+        menuUpdates.push("socialTwitter = @socialTwitter");
+        menuRequest.input("socialTwitter", sql.NVarChar, socialTwitter || null);
+      }
+
+      if (socialWhatsapp !== undefined) {
+        menuUpdates.push("socialWhatsapp = @socialWhatsapp");
+        menuRequest.input("socialWhatsapp", sql.NVarChar, socialWhatsapp || null);
       }
 
       if (menuUpdates.length > 0) {

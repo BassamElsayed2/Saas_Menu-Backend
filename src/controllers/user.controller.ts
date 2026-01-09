@@ -16,7 +16,7 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
       .query(`
         SELECT 
           id, email, name, phoneNumber, country, dateOfBirth, gender, address,
-          role, isEmailVerified, createdAt
+          role, isEmailVerified, createdAt, profileImage
         FROM Users
         WHERE id = @userId
       `);
@@ -37,7 +37,7 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
 export async function updateProfile(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.userId;
-    const { name, phone, phoneNumber, country, dateOfBirth, gender, address } = req.body;
+    const { name, phone, phoneNumber, country, dateOfBirth, gender, address, profileImage } = req.body;
 
     const pool = await getPool();
 
@@ -76,6 +76,11 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
       request.input('address', sql.NVarChar, address || null);
     }
 
+    if (profileImage !== undefined) {
+      updates.push('profileImage = @profileImage');
+      request.input('profileImage', sql.NVarChar, profileImage || null);
+    }
+
     if (updates.length === 0) {
       res.status(400).json({ error: 'No fields to update' });
       return;
@@ -94,7 +99,7 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
       .query(`
         SELECT 
           id, email, name, phoneNumber, country, dateOfBirth, gender, address,
-          role, isEmailVerified, createdAt
+          role, isEmailVerified, createdAt, profileImage
         FROM Users
         WHERE id = @userId
       `);

@@ -23,6 +23,7 @@ router.put(
     body('dateOfBirth').optional().isISO8601().toDate(),
     body('gender').optional().isIn(['male', 'female', 'other']),
     body('address').optional().isString().trim().isLength({ max: 500 }),
+    body('profileImage').optional().isString().trim().isLength({ max: 500 }),
   ]),
   userController.updateProfile
 );

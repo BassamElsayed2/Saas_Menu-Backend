@@ -43,6 +43,7 @@ export async function ensureUploadDirectories(): Promise<void> {
     path.join(process.cwd(), 'uploads', 'menu-items'),
     path.join(process.cwd(), 'uploads', 'ads'),
     path.join(process.cwd(), 'uploads', 'categories'),
+    path.join(process.cwd(), 'uploads', 'profile-images'),
   ];
 
   for (const dir of dirs) {
@@ -62,8 +63,8 @@ export async function uploadImage(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const { type = 'menu-items' } = req.body; // 'logos', 'menu-items', 'ads', 'categories'
-    const allowedTypes = ['logos', 'menu-items', 'ads', 'categories'];
+    const { type = 'menu-items' } = req.body; // 'logos', 'menu-items', 'ads', 'categories', 'profile-images'
+    const allowedTypes = ['logos', 'menu-items', 'ads', 'categories', 'profile-images'];
 
     if (!allowedTypes.includes(type)) {
       res.status(400).json({ error: 'Invalid upload type' });
@@ -148,6 +149,12 @@ export async function uploadImage(req: Request, res: Response): Promise<void> {
           fit: 'inside',
           withoutEnlargement: true,
         });
+      } else if (type === 'profile-images') {
+        // Profile images: 400x400, maintain aspect ratio
+        sharpInstance = sharpInstance.resize(400, 400, {
+          fit: 'inside',
+          withoutEnlargement: true,
+        });
       }
 
       // Convert to WebP and save
@@ -186,7 +193,7 @@ export async function deleteImage(req: Request, res: Response): Promise<void> {
     const { filename } = req.params;
     const { type = 'menu-items' } = req.query;
 
-    const allowedTypes = ['logos', 'menu-items', 'ads', 'categories'];
+    const allowedTypes = ['logos', 'menu-items', 'ads', 'categories', 'profile-images'];
 
     if (!allowedTypes.includes(type as string)) {
       res.status(400).json({ error: 'Invalid upload type' });
@@ -223,7 +230,7 @@ export async function getImageInfo(req: Request, res: Response): Promise<void> {
     const { filename } = req.params;
     const { type = 'menu-items' } = req.query;
 
-    const allowedTypes = ['logos', 'menu-items', 'ads', 'categories'];
+    const allowedTypes = ['logos', 'menu-items', 'ads', 'categories', 'profile-images'];
 
     if (!allowedTypes.includes(type as string)) {
       res.status(400).json({ error: 'Invalid upload type' });

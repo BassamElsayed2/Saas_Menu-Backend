@@ -13,7 +13,7 @@ export const getPublicMenu = async (req: Request, res: Response) => {
     const menuResult = await pool
       .request()
       .input("slug", sql.NVarChar, slug)
-      .input("locale", sql.NVarChar, locale).query(`
+      .input("locale", sql.NVarChar, locale)      .query(`
         SELECT 
           m.id,
           m.slug,
@@ -22,6 +22,13 @@ export const getPublicMenu = async (req: Request, res: Response) => {
           ISNULL(m.currency, 'SAR') as currency,
           m.isActive,
           m.userId,
+          m.footerLogo,
+          m.footerDescriptionEn,
+          m.footerDescriptionAr,
+          m.socialFacebook,
+          m.socialInstagram,
+          m.socialTwitter,
+          m.socialWhatsapp,
           mt.name,
           mt.description,
           mt.locale,
@@ -49,18 +56,25 @@ export const getPublicMenu = async (req: Request, res: Response) => {
       return res.json({
         success: true,
         data: {
-          menu: {
-            id: menu.id,
-            name: menu.name,
-            description: menu.description,
-            logo: menu.logo,
-            theme: menu.theme,
-            currency: menu.currency || "SAR",
-            slug: menu.slug,
-            isActive: menu.isActive,
-            locale: menu.locale,
-            ownerPlanType: menu.ownerPlanType || "free",
-          },
+        menu: {
+          id: menu.id,
+          name: menu.name,
+          description: menu.description,
+          logo: menu.logo,
+          theme: menu.theme,
+          currency: menu.currency || "SAR",
+          slug: menu.slug,
+          isActive: menu.isActive,
+          locale: menu.locale,
+          ownerPlanType: menu.ownerPlanType || "free",
+          footerLogo: menu.footerLogo,
+          footerDescriptionEn: menu.footerDescriptionEn,
+          footerDescriptionAr: menu.footerDescriptionAr,
+          socialFacebook: menu.socialFacebook,
+          socialInstagram: menu.socialInstagram,
+          socialTwitter: menu.socialTwitter,
+          socialWhatsapp: menu.socialWhatsapp,
+        },
           items: [],
           itemsByCategory: {},
           branches: [],

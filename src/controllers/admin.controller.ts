@@ -262,8 +262,9 @@ export async function getUserDetails(
       `);
 
     // Get user's subscription history
-    const subscriptionsResult = await pool.request().input("userId", sql.Int, id)
-      .query(`
+    const subscriptionsResult = await pool
+      .request()
+      .input("userId", sql.Int, id).query(`
         SELECT 
           s.id, s.billingCycle, s.startDate, s.endDate, s.status,
           s.amount, s.paymentStatus, s.paidAt,
@@ -323,7 +324,9 @@ export async function toggleUserSuspension(
       `);
 
     res.json({
-      message: newStatus ? "User suspended successfully" : "User unsuspended successfully",
+      message: newStatus
+        ? "User suspended successfully"
+        : "User unsuspended successfully",
       isSuspended: newStatus,
     });
   } catch (error) {
@@ -572,18 +575,18 @@ export async function createGlobalAd(
   res: Response
 ): Promise<void> {
   try {
-    const { 
-      title, 
-      titleAr, 
-      content, 
-      contentAr, 
-      imageUrl, 
-      linkUrl, 
-      position = 'banner',
-      isActive = true, 
+    const {
+      title,
+      titleAr,
+      content,
+      contentAr,
+      imageUrl,
+      linkUrl,
+      position = "banner",
+      isActive = true,
       displayOrder = 0,
       startDate,
-      endDate
+      endDate,
     } = req.body;
 
     if (!title && !titleAr) {
@@ -595,11 +598,11 @@ export async function createGlobalAd(
 
     const result = await pool
       .request()
-      .input("title", sql.NVarChar, title || '')
-      .input("titleAr", sql.NVarChar, titleAr || '')
-      .input("content", sql.NVarChar, content || '')
-      .input("contentAr", sql.NVarChar, contentAr || '')
-      .input("imageUrl", sql.NVarChar, imageUrl || '')
+      .input("title", sql.NVarChar, title || "")
+      .input("titleAr", sql.NVarChar, titleAr || "")
+      .input("content", sql.NVarChar, content || "")
+      .input("contentAr", sql.NVarChar, contentAr || "")
+      .input("imageUrl", sql.NVarChar, imageUrl || "")
       .input("linkUrl", sql.NVarChar, linkUrl || null)
       .input("position", sql.NVarChar, position)
       .input("isActive", sql.Bit, isActive)
@@ -637,18 +640,18 @@ export async function updateGlobalAd(
 ): Promise<void> {
   try {
     const { id } = req.params;
-    const { 
-      title, 
-      titleAr, 
-      content, 
-      contentAr, 
-      imageUrl, 
-      linkUrl, 
-      position, 
-      isActive, 
+    const {
+      title,
+      titleAr,
+      content,
+      contentAr,
+      imageUrl,
+      linkUrl,
+      position,
+      isActive,
       displayOrder,
       startDate,
-      endDate
+      endDate,
     } = req.body;
 
     const pool = await getPool();
@@ -871,7 +874,13 @@ export async function updateUserSubscription(
 ): Promise<void> {
   try {
     const { id } = req.params;
-    const { planId, billingCycle, startDate, endDate, status = "active" } = req.body;
+    const {
+      planId,
+      billingCycle,
+      startDate,
+      endDate,
+      status = "active",
+    } = req.body;
 
     // Validate required fields
     if (!planId || !billingCycle) {
@@ -881,7 +890,11 @@ export async function updateUserSubscription(
 
     // Validate billing cycle
     if (!["monthly", "yearly", "free"].includes(billingCycle)) {
-      res.status(400).json({ error: "Invalid billing cycle. Must be monthly, yearly, or free" });
+      res
+        .status(400)
+        .json({
+          error: "Invalid billing cycle. Must be monthly, yearly, or free",
+        });
       return;
     }
 
@@ -903,7 +916,8 @@ export async function updateUserSubscription(
     }
 
     // Check if plan exists
-    const planResult = await pool.request().input("planId", sql.Int, planId).query(`
+    const planResult = await pool.request().input("planId", sql.Int, planId)
+      .query(`
       SELECT id, name FROM Plans WHERE id = @planId
     `);
 
@@ -947,7 +961,11 @@ export async function updateUserSubscription(
       `);
 
     // Send subscription created notification
-    if (status === 'active' && subscriptionEndDate && planResult.recordset[0].name !== 'Free') {
+    if (
+      status === "active" &&
+      subscriptionEndDate &&
+      planResult.recordset[0].name !== "Free"
+    ) {
       try {
         await notificationService.notifySubscriptionCreated(
           parseInt(id),
@@ -955,7 +973,10 @@ export async function updateUserSubscription(
           subscriptionEndDate
         );
       } catch (error) {
-        logger.error('Failed to send subscription created notification:', error);
+        logger.error(
+          "Failed to send subscription created notification:",
+          error
+        );
         // Don't fail the request if notification fails
       }
     }
@@ -1020,17 +1041,22 @@ export async function applyFreePlanLimits(
     }
 
     if (userResult.recordset[0].role === "admin") {
-      res.status(403).json({ error: "Cannot apply free plan limits to admin users" });
+      res
+        .status(403)
+        .json({ error: "Cannot apply free plan limits to admin users" });
       return;
     }
 
     const user = userResult.recordset[0];
 
     // Import and use the downgrade service
-    const { SubscriptionDowngradeService } = await import('../services/subscriptionDowngrade.service');
-    
+    const { SubscriptionDowngradeService } = await import(
+      "../services/subscriptionDowngrade.service"
+    );
+
     // Get info before applying limits
-    const beforeResult = await pool.request().input("userId", sql.Int, id).query(`
+    const beforeResult = await pool.request().input("userId", sql.Int, id)
+      .query(`
       SELECT 
         (SELECT COUNT(*) FROM Menus WHERE userId = @userId AND isActive = 1) as activeMenus,
         (SELECT COUNT(*) FROM Menus WHERE userId = @userId) as totalMenus,
@@ -1051,7 +1077,8 @@ export async function applyFreePlanLimits(
     await SubscriptionDowngradeService.handleDowngradeToFree(parseInt(id));
 
     // Get info after applying limits
-    const afterResult = await pool.request().input("userId", sql.Int, id).query(`
+    const afterResult = await pool.request().input("userId", sql.Int, id)
+      .query(`
       SELECT 
         (SELECT COUNT(*) FROM Menus WHERE userId = @userId AND isActive = 1) as activeMenus,
         (SELECT COUNT(*) FROM Menus WHERE userId = @userId) as totalMenus,

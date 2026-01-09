@@ -15,7 +15,7 @@ router.post(
   '/',
   uploadLimiter,
   uploadMemoryStorage.single('file'),
-  [body('type').optional().isIn(['logos', 'menu-items', 'ads'])],
+  [body('type').optional().isIn(['logos', 'menu-items', 'ads', 'profile-images'])],
   uploadController.uploadImage
 );
 
