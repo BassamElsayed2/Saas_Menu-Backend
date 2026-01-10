@@ -20,7 +20,10 @@ import { RefreshTokenService } from "../services/refreshToken.service";
 import { TokenBlacklistService } from "../services/tokenBlacklist.service";
 
 // Check Availability (Email or Phone Number)
-export async function checkAvailability(req: Request, res: Response): Promise<void> {
+export async function checkAvailability(
+  req: Request,
+  res: Response
+): Promise<void> {
   try {
     const { email, phoneNumber } = req.query;
 
@@ -38,7 +41,7 @@ export async function checkAvailability(req: Request, res: Response): Promise<vo
         .request()
         .input("email", sql.NVarChar, (email as string).toLowerCase())
         .query("SELECT id FROM Users WHERE email = @email");
-      
+
       checks.email = emailResult.recordset.length === 0; // true if available
     }
 
@@ -48,15 +51,17 @@ export async function checkAvailability(req: Request, res: Response): Promise<vo
         .request()
         .input("phoneNumber", sql.NVarChar, phoneNumber as string)
         .query("SELECT id FROM Users WHERE phoneNumber = @phoneNumber");
-      
+
       checks.phoneNumber = phoneResult.recordset.length === 0; // true if available
     }
 
     res.json({
       available: checks,
       message: Object.entries(checks)
-        .map(([key, value]) => `${key}: ${value ? 'available' : 'already exists'}`)
-        .join(', ')
+        .map(
+          ([key, value]) => `${key}: ${value ? "available" : "already exists"}`
+        )
+        .join(", "),
     });
   } catch (error) {
     logger.error("Check availability error:", error);
@@ -111,8 +116,7 @@ export async function signup(req: Request, res: Response): Promise<void> {
         .input("password", sql.NVarChar, hashedPassword)
         .input("name", sql.NVarChar, name)
         .input("phoneNumber", sql.NVarChar, phoneNumber)
-        .input("role", sql.NVarChar, ROLES.USER)
-        .query(`
+        .input("role", sql.NVarChar, ROLES.USER).query(`
           INSERT INTO Users (email, password, name, phoneNumber, role, isEmailVerified)
           OUTPUT INSERTED.id
           VALUES (@email, @password, @name, @phoneNumber, @role, 1)
@@ -156,8 +160,11 @@ export async function signup(req: Request, res: Response): Promise<void> {
 export async function login(req: Request, res: Response): Promise<void> {
   try {
     const { email, password } = req.body;
-    const ipAddress = (req.ip || req.socket.remoteAddress || 'unknown').replace('::ffff:', '');
-    const userAgent = req.headers['user-agent'];
+    const ipAddress = (req.ip || req.socket.remoteAddress || "unknown").replace(
+      "::ffff:",
+      ""
+    );
+    const userAgent = req.headers["user-agent"];
 
     const pool = await getPool();
 
@@ -180,12 +187,18 @@ export async function login(req: Request, res: Response): Promise<void> {
 
     if (userResult.recordset.length === 0) {
       // Record failed attempt
-      await LoginAttemptsService.recordAttempt(email, ipAddress, false, userAgent);
+      await LoginAttemptsService.recordAttempt(
+        email,
+        ipAddress,
+        false,
+        userAgent
+      );
       await LoginAttemptsService.checkAndLockAccount(email);
-      
-      res.status(401).json({ 
-        error: "البريد الإلكتروني غير مسجل في النظام. يرجى التحقق من البريد الإلكتروني والمحاولة مرة أخرى.",
-        errorType: "EMAIL_NOT_FOUND"
+
+      res.status(401).json({
+        error:
+          "البريد الإلكتروني غير مسجل في النظام. يرجى التحقق من البريد الإلكتروني والمحاولة مرة أخرى.",
+        errorType: "EMAIL_NOT_FOUND",
       });
       return;
     }
@@ -196,18 +209,25 @@ export async function login(req: Request, res: Response): Promise<void> {
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
       // Record failed attempt
-      await LoginAttemptsService.recordAttempt(email, ipAddress, false, userAgent);
+      await LoginAttemptsService.recordAttempt(
+        email,
+        ipAddress,
+        false,
+        userAgent
+      );
       const lockResult = await LoginAttemptsService.checkAndLockAccount(email);
-      
+
       if (lockResult.shouldLock) {
         res.status(403).json({
-          error: "تم قفل حسابك لمدة 30 دقيقة بسبب محاولات تسجيل دخول فاشلة متعددة.",
+          error:
+            "تم قفل حسابك لمدة 30 دقيقة بسبب محاولات تسجيل دخول فاشلة متعددة.",
           isLocked: true,
           lockedUntil: lockResult.lockedUntil,
         });
       } else {
         res.status(401).json({
-          error: "كلمة المرور غير صحيحة. يرجى التحقق من كلمة المرور والمحاولة مرة أخرى.",
+          error:
+            "كلمة المرور غير صحيحة. يرجى التحقق من كلمة المرور والمحاولة مرة أخرى.",
           errorType: "INVALID_PASSWORD",
           remainingAttempts: lockResult.remainingAttempts,
         });
@@ -242,7 +262,7 @@ export async function login(req: Request, res: Response): Promise<void> {
       .request()
       .input("userId", sql.Int, user.id)
       .query("UPDATE Users SET lastLoginAt = GETDATE() WHERE id = @userId");
-    
+
     // Record successful login and reset failed attempts
     await LoginAttemptsService.recordAttempt(email, ipAddress, true, userAgent);
     await LoginAttemptsService.resetFailedAttempts(email);
@@ -261,7 +281,11 @@ export async function login(req: Request, res: Response): Promise<void> {
     // Store refresh token in database
     const refreshTokenExpiry = new Date();
     refreshTokenExpiry.setDate(refreshTokenExpiry.getDate() + 7); // 7 days
-    await RefreshTokenService.storeToken(user.id, refreshToken, refreshTokenExpiry);
+    await RefreshTokenService.storeToken(
+      user.id,
+      refreshToken,
+      refreshTokenExpiry
+    );
 
     res.json({
       message: "Login successful",
@@ -546,7 +570,7 @@ export async function getMe(req: Request, res: Response): Promise<void> {
         profileImage: user.profileImage,
         isEmailVerified: user.isEmailVerified,
         createdAt: user.createdAt,
-        planType: user.billingCycle || 'free', // Add planType from billingCycle
+        planType: user.billingCycle || "free", // Add planType from billingCycle
         subscription: {
           planId: user.planId,
           planName: user.planName,
@@ -573,13 +597,15 @@ export async function refreshToken(req: Request, res: Response): Promise<void> {
     }
 
     // Verify refresh token in database
-    const tokenVerification = await RefreshTokenService.verifyToken(refreshToken);
-    
+    const tokenVerification = await RefreshTokenService.verifyToken(
+      refreshToken
+    );
+
     if (!tokenVerification.isValid) {
-      res.status(401).json({ 
-        error: tokenVerification.isRevoked 
-          ? "Refresh token has been revoked" 
-          : "Invalid or expired refresh token" 
+      res.status(401).json({
+        error: tokenVerification.isRevoked
+          ? "Refresh token has been revoked"
+          : "Invalid or expired refresh token",
       });
       return;
     }
@@ -623,7 +649,11 @@ export async function refreshToken(req: Request, res: Response): Promise<void> {
     // Rotate refresh token (revoke old, store new)
     const refreshTokenExpiry = new Date();
     refreshTokenExpiry.setDate(refreshTokenExpiry.getDate() + 7); // 7 days
-    await RefreshTokenService.rotateToken(refreshToken, newRefreshToken, refreshTokenExpiry);
+    await RefreshTokenService.rotateToken(
+      refreshToken,
+      newRefreshToken,
+      refreshTokenExpiry
+    );
 
     res.json({
       message: "Token refreshed successfully",
@@ -641,11 +671,11 @@ export async function logout(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.userId;
     const { refreshToken } = req.body;
-    
+
     // Get access token from header
     const authHeader = req.headers.authorization;
     const accessToken = authHeader?.substring(7); // Remove 'Bearer '
-    
+
     if (accessToken) {
       // Add access token to blacklist
       const accessTokenExpiry = new Date();
@@ -653,17 +683,17 @@ export async function logout(req: Request, res: Response): Promise<void> {
       await TokenBlacklistService.addToBlacklist(
         accessToken,
         userId,
-        'access',
+        "access",
         accessTokenExpiry,
-        'User logout'
+        "User logout"
       );
     }
-    
+
     if (refreshToken) {
       // Revoke refresh token
-      await RefreshTokenService.revokeToken(refreshToken, 'User logout');
+      await RefreshTokenService.revokeToken(refreshToken, "User logout");
     }
-    
+
     res.json({ message: "Logged out successfully" });
   } catch (error) {
     logger.error("Logout error:", error);
