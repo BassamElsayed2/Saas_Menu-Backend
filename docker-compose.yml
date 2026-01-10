@@ -5,6 +5,9 @@ services:
     build: . # builds from Dockerfile in repo
     env_file:
       - .env.production
+
     ports:
       - "4021:4021"
     restart: unless-stopped
+    environment:
+      - NODE_ENV=production
