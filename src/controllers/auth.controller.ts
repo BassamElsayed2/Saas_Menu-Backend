@@ -183,7 +183,10 @@ export async function login(req: Request, res: Response): Promise<void> {
       await LoginAttemptsService.recordAttempt(email, ipAddress, false, userAgent);
       await LoginAttemptsService.checkAndLockAccount(email);
       
-      res.status(401).json({ error: "Invalid email or password" });
+      res.status(401).json({ 
+        error: "البريد الإلكتروني غير مسجل في النظام. يرجى التحقق من البريد الإلكتروني والمحاولة مرة أخرى.",
+        errorType: "EMAIL_NOT_FOUND"
+      });
       return;
     }
 
@@ -204,7 +207,8 @@ export async function login(req: Request, res: Response): Promise<void> {
         });
       } else {
         res.status(401).json({
-          error: "Invalid email or password",
+          error: "كلمة المرور غير صحيحة. يرجى التحقق من كلمة المرور والمحاولة مرة أخرى.",
+          errorType: "INVALID_PASSWORD",
           remainingAttempts: lockResult.remainingAttempts,
         });
       }
