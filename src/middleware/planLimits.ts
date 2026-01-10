@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
-import { getPool, sql } from '../config/database';
-import { PLANS } from '../config/constants';
+import { Request, Response, NextFunction } from "express";
+import { getPool, sql } from "../config/database";
+import { PLANS } from "../config/constants";
 
 export async function checkMenuLimit(
   req: Request,
@@ -11,34 +11,34 @@ export async function checkMenuLimit(
     const userId = req.user!.userId;
     const pool = await getPool();
 
-    // Get user's subscription
-    const subResult = await pool
-      .request()
-      .input('userId', sql.Int, userId)
+    // Get user's subscription (get the most recent active subscription by id)
+    const subResult = await pool.request().input("userId", sql.Int, userId)
       .query(`
-        SELECT s.planId, p.maxMenus, p.name as planName
+        SELECT TOP 1 s.planId, p.maxMenus, p.name as planName
         FROM Subscriptions s
         JOIN Plans p ON s.planId = p.id
         WHERE s.userId = @userId 
           AND s.status = 'active' 
           AND (s.endDate IS NULL OR s.endDate > GETDATE())
-        ORDER BY s.startDate DESC
+        ORDER BY s.id DESC
       `);
 
     if (subResult.recordset.length === 0) {
-      res.status(403).json({ 
-        error: 'No active subscription found. Please subscribe to a plan.' 
+      res.status(403).json({
+        error: "No active subscription found. Please subscribe to a plan.",
       });
       return;
     }
 
     const { maxMenus, planName } = subResult.recordset[0];
 
-    // Count user's menus
+    // Count user's active menus only (inactive menus don't count towards limit)
     const countResult = await pool
       .request()
-      .input('userId', sql.Int, userId)
-      .query('SELECT COUNT(*) as count FROM Menus WHERE userId = @userId');
+      .input("userId", sql.Int, userId)
+      .query(
+        "SELECT COUNT(*) as count FROM Menus WHERE userId = @userId AND isActive = 1"
+      );
 
     const currentCount = countResult.recordset[0].count;
 
@@ -54,7 +54,7 @@ export async function checkMenuLimit(
 
     next();
   } catch (error) {
-    res.status(500).json({ error: 'Failed to check menu limit' });
+    res.status(500).json({ error: "Failed to check menu limit" });
   }
 }
 
@@ -68,23 +68,23 @@ export async function checkProductLimit(
     const menuId = parseInt(req.params.menuId);
     const pool = await getPool();
 
-    // Get menu's plan limit
+    // Get menu's plan limit (get the most recent active subscription by id)
     const planResult = await pool
       .request()
-      .input('userId', sql.Int, userId)
-      .input('menuId', sql.Int, menuId)
-      .query(`
-        SELECT p.maxProductsPerMenu, p.name as planName
+      .input("userId", sql.Int, userId)
+      .input("menuId", sql.Int, menuId).query(`
+        SELECT TOP 1 p.maxProductsPerMenu, p.name as planName
         FROM Menus m
         JOIN Subscriptions s ON m.userId = s.userId 
           AND s.status = 'active' 
           AND (s.endDate IS NULL OR s.endDate > GETDATE())
         JOIN Plans p ON s.planId = p.id
         WHERE m.id = @menuId AND m.userId = @userId
+        ORDER BY s.id DESC
       `);
 
     if (planResult.recordset.length === 0) {
-      res.status(404).json({ error: 'Menu not found or access denied' });
+      res.status(404).json({ error: "Menu not found or access denied" });
       return;
     }
 
@@ -99,8 +99,8 @@ export async function checkProductLimit(
     // Count menu's products
     const countResult = await pool
       .request()
-      .input('menuId', sql.Int, menuId)
-      .query('SELECT COUNT(*) as count FROM MenuItems WHERE menuId = @menuId');
+      .input("menuId", sql.Int, menuId)
+      .query("SELECT COUNT(*) as count FROM MenuItems WHERE menuId = @menuId");
 
     const currentCount = countResult.recordset[0].count;
 
@@ -116,8 +116,6 @@ export async function checkProductLimit(
 
     next();
   } catch (error) {
-    res.status(500).json({ error: 'Failed to check product limit' });
+    res.status(500).json({ error: "Failed to check product limit" });
   }
 }
-
-

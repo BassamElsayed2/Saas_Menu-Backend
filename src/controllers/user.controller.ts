@@ -275,20 +275,28 @@ export async function getSubscription(req: Request, res: Response): Promise<void
       .request()
       .input('userId', sql.Int, userId)
       .query(`
-        SELECT 
+        SELECT TOP 1
           s.id, s.userId, s.planId, s.status, s.startDate, s.endDate, 
           s.billingCycle, s.amount, s.createdAt,
-          p.name as planName
+          p.name as planName, p.maxMenus, p.maxProductsPerMenu
         FROM Subscriptions s
         LEFT JOIN Plans p ON s.planId = p.id
         WHERE s.userId = @userId 
           AND s.status = 'active' 
           AND (s.endDate IS NULL OR s.endDate > GETDATE())
-        ORDER BY s.createdAt DESC
+        ORDER BY s.id DESC
       `);
 
     if (result.recordset.length === 0) {
       // Return default free subscription if no active subscription found
+      // Get free plan limits
+      const freePlanResult = await pool.request().query(`
+        SELECT maxMenus, maxProductsPerMenu
+        FROM Plans
+        WHERE name = 'Free'
+      `);
+      const freePlan = freePlanResult.recordset[0] || { maxMenus: 1, maxProductsPerMenu: 20 };
+      
       res.json({ 
         subscription: {
           plan: 'Free',
@@ -297,7 +305,9 @@ export async function getSubscription(req: Request, res: Response): Promise<void
           billingCycle: 'free',
           startDate: null,
           endDate: null,
-          amount: 0
+          amount: 0,
+          maxMenus: freePlan.maxMenus,
+          maxProductsPerMenu: freePlan.maxProductsPerMenu
         }
       });
       return;
