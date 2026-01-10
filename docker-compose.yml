@@ -4,7 +4,7 @@ services:
   api:
     build: . # builds from Dockerfile in repo
     env_file:
-      - .env
+      - .env.production
     ports:
       - "4021:4021"
     restart: unless-stopped
