@@ -2,9 +2,9 @@ version: "3.9"
 
 services:
   api:
-    build: . # tell Docker to build from your Dockerfile
-    image: saas-menu-api # internal label
+    build: . # builds from Dockerfile in repo
     env_file:
       - .env
     ports:
       - "4021:4021"
+    restart: unless-stopped
