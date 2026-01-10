@@ -10,25 +10,20 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Install ALL dependencies (including devDependencies)
-RUN npm install && \
-    echo "✅ All dependencies installed (including TypeScript)"
+# Install ALL dependencies
+RUN npm install
 
-# Copy source code
+# Copy all source code and configs
 COPY tsconfig.json ./
 COPY src ./src
 COPY database ./database
 COPY scripts ./scripts
 
 # Build TypeScript
-RUN echo "🔨 Building TypeScript..." && \
-    npm run build && \
-    echo "✅ Build complete" && \
-    ls -la dist/
+RUN npm run build
 
-# Remove dev dependencies after build to reduce image size
-RUN npm prune --production && \
-    echo "✅ Production dependencies only"
+# Remove dev dependencies to reduce image size
+RUN npm prune --production
 
 # Create upload directories
 RUN mkdir -p uploads/logos uploads/menu-items uploads/ads uploads/categories logs
