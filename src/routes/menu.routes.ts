@@ -76,6 +76,22 @@ router.put(
     body("theme").optional().isIn(["default", "neon", "coffee", "template1"]),
     body("currency").optional().isString().isLength({ min: 3, max: 3 }),
     body("isActive").optional().isBoolean(),
+    body("addressEn")
+      .optional({ nullable: true, checkFalsy: true })
+      .isString()
+      .trim()
+      .isLength({ max: 500 }),
+    body("addressAr")
+      .optional({ nullable: true, checkFalsy: true })
+      .isString()
+      .trim()
+      .isLength({ max: 500 }),
+    body("phone")
+      .optional({ nullable: true, checkFalsy: true })
+      .isString()
+      .trim()
+      .isLength({ max: 50 }),
+    body("workingHours").optional(),
   ]),
   menuController.updateMenu
 );

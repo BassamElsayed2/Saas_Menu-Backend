@@ -166,12 +166,13 @@ export async function getMenuById(req: Request, res: Response): Promise<void> {
     const result = await pool
       .request()
       .input("id", sql.Int, parseInt(id))
-      .input("userId", sql.Int, userId)      .query(`
+      .input("userId", sql.Int, userId).query(`
         SELECT 
           m.id, m.userId, m.slug, m.logo, m.theme, m.isActive, m.createdAt,
           ISNULL(m.currency, 'SAR') as currency,
           m.footerLogo, m.footerDescriptionEn, m.footerDescriptionAr,
           m.socialFacebook, m.socialInstagram, m.socialTwitter, m.socialWhatsapp,
+          m.addressEn, m.addressAr, m.phone, m.workingHours,
           ar.name as nameAr, ar.description as descriptionAr,
           en.name as nameEn, en.description as descriptionEn
         FROM Menus m
@@ -185,7 +186,17 @@ export async function getMenuById(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const menu = result.recordset[0];
+    let menu = result.recordset[0];
+
+    // Parse workingHours if it's a JSON string
+    if (menu.workingHours && typeof menu.workingHours === 'string') {
+      try {
+        menu.workingHours = JSON.parse(menu.workingHours);
+      } catch (e) {
+        // If parsing fails, set to null
+        menu.workingHours = null;
+      }
+    }
 
     // Get statistics for the menu
     const statsResult = await pool
@@ -233,6 +244,10 @@ export async function updateMenu(req: Request, res: Response): Promise<void> {
       socialInstagram,
       socialTwitter,
       socialWhatsapp,
+      addressEn,
+      addressAr,
+      phone,
+      workingHours,
     } = req.body;
 
     await executeTransaction(async (transaction) => {
@@ -280,22 +295,38 @@ export async function updateMenu(req: Request, res: Response): Promise<void> {
 
       if (footerDescriptionEn !== undefined) {
         menuUpdates.push("footerDescriptionEn = @footerDescriptionEn");
-        menuRequest.input("footerDescriptionEn", sql.NVarChar, footerDescriptionEn || null);
+        menuRequest.input(
+          "footerDescriptionEn",
+          sql.NVarChar,
+          footerDescriptionEn || null
+        );
       }
 
       if (footerDescriptionAr !== undefined) {
         menuUpdates.push("footerDescriptionAr = @footerDescriptionAr");
-        menuRequest.input("footerDescriptionAr", sql.NVarChar, footerDescriptionAr || null);
+        menuRequest.input(
+          "footerDescriptionAr",
+          sql.NVarChar,
+          footerDescriptionAr || null
+        );
       }
 
       if (socialFacebook !== undefined) {
         menuUpdates.push("socialFacebook = @socialFacebook");
-        menuRequest.input("socialFacebook", sql.NVarChar, socialFacebook || null);
+        menuRequest.input(
+          "socialFacebook",
+          sql.NVarChar,
+          socialFacebook || null
+        );
       }
 
       if (socialInstagram !== undefined) {
         menuUpdates.push("socialInstagram = @socialInstagram");
-        menuRequest.input("socialInstagram", sql.NVarChar, socialInstagram || null);
+        menuRequest.input(
+          "socialInstagram",
+          sql.NVarChar,
+          socialInstagram || null
+        );
       }
 
       if (socialTwitter !== undefined) {
@@ -305,7 +336,35 @@ export async function updateMenu(req: Request, res: Response): Promise<void> {
 
       if (socialWhatsapp !== undefined) {
         menuUpdates.push("socialWhatsapp = @socialWhatsapp");
-        menuRequest.input("socialWhatsapp", sql.NVarChar, socialWhatsapp || null);
+        menuRequest.input(
+          "socialWhatsapp",
+          sql.NVarChar,
+          socialWhatsapp || null
+        );
+      }
+
+      if (addressEn !== undefined) {
+        menuUpdates.push("addressEn = @addressEn");
+        menuRequest.input("addressEn", sql.NVarChar, addressEn || null);
+      }
+
+      if (addressAr !== undefined) {
+        menuUpdates.push("addressAr = @addressAr");
+        menuRequest.input("addressAr", sql.NVarChar, addressAr || null);
+      }
+
+      if (phone !== undefined) {
+        menuUpdates.push("phone = @phone");
+        menuRequest.input("phone", sql.NVarChar, phone || null);
+      }
+
+      if (workingHours !== undefined) {
+        menuUpdates.push("workingHours = @workingHours");
+        menuRequest.input(
+          "workingHours",
+          sql.NVarChar(sql.MAX),
+          workingHours ? JSON.stringify(workingHours) : null
+        );
       }
 
       if (menuUpdates.length > 0) {

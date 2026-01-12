@@ -13,7 +13,7 @@ export const getPublicMenu = async (req: Request, res: Response) => {
     const menuResult = await pool
       .request()
       .input("slug", sql.NVarChar, slug)
-      .input("locale", sql.NVarChar, locale)      .query(`
+      .input("locale", sql.NVarChar, locale).query(`
         SELECT 
           m.id,
           m.slug,
@@ -29,6 +29,10 @@ export const getPublicMenu = async (req: Request, res: Response) => {
           m.socialInstagram,
           m.socialTwitter,
           m.socialWhatsapp,
+          m.addressEn,
+          m.addressAr,
+          m.phone,
+          m.workingHours,
           mt.name,
           mt.description,
           mt.locale,
@@ -56,25 +60,25 @@ export const getPublicMenu = async (req: Request, res: Response) => {
       return res.json({
         success: true,
         data: {
-        menu: {
-          id: menu.id,
-          name: menu.name,
-          description: menu.description,
-          logo: menu.logo,
-          theme: menu.theme,
-          currency: menu.currency || "SAR",
-          slug: menu.slug,
-          isActive: menu.isActive,
-          locale: menu.locale,
-          ownerPlanType: menu.ownerPlanType || "free",
-          footerLogo: menu.footerLogo,
-          footerDescriptionEn: menu.footerDescriptionEn,
-          footerDescriptionAr: menu.footerDescriptionAr,
-          socialFacebook: menu.socialFacebook,
-          socialInstagram: menu.socialInstagram,
-          socialTwitter: menu.socialTwitter,
-          socialWhatsapp: menu.socialWhatsapp,
-        },
+          menu: {
+            id: menu.id,
+            name: menu.name,
+            description: menu.description,
+            logo: menu.logo,
+            theme: menu.theme,
+            currency: menu.currency || "SAR",
+            slug: menu.slug,
+            isActive: menu.isActive,
+            locale: menu.locale,
+            ownerPlanType: menu.ownerPlanType || "free",
+            footerLogo: menu.footerLogo,
+            footerDescriptionEn: menu.footerDescriptionEn,
+            footerDescriptionAr: menu.footerDescriptionAr,
+            socialFacebook: menu.socialFacebook,
+            socialInstagram: menu.socialInstagram,
+            socialTwitter: menu.socialTwitter,
+            socialWhatsapp: menu.socialWhatsapp,
+          },
           items: [],
           itemsByCategory: {},
           branches: [],
@@ -243,8 +247,7 @@ export const getPublicMenu = async (req: Request, res: Response) => {
     // Get menu customizations if available
     const customizationsResult = await pool
       .request()
-      .input("menuId", sql.Int, menu.id)
-      .query(`
+      .input("menuId", sql.Int, menu.id).query(`
         SELECT 
           primaryColor, secondaryColor, backgroundColor, textColor,
           heroTitleAr, heroSubtitleAr, heroTitleEn, heroSubtitleEn
@@ -252,9 +255,10 @@ export const getPublicMenu = async (req: Request, res: Response) => {
         WHERE menuId = @menuId
       `);
 
-    const customizations = customizationsResult.recordset.length > 0
-      ? customizationsResult.recordset[0]
-      : null;
+    const customizations =
+      customizationsResult.recordset.length > 0
+        ? customizationsResult.recordset[0]
+        : null;
 
     res.json({
       success: true,
@@ -270,6 +274,10 @@ export const getPublicMenu = async (req: Request, res: Response) => {
           isActive: menu.isActive,
           locale: menu.locale,
           ownerPlanType: menu.ownerPlanType || "free", // Add owner's plan type
+          addressEn: menu.addressEn,
+          addressAr: menu.addressAr,
+          phone: menu.phone,
+          workingHours: menu.workingHours ? (typeof menu.workingHours === 'string' ? JSON.parse(menu.workingHours) : menu.workingHours) : null,
         },
         customizations,
         categories: categories, // Add categories array
@@ -537,9 +545,9 @@ export const getMenuCustomAds = async (req: Request, res: Response) => {
     const pool = await getPool();
 
     // Check menu owner's plan type
-    const menuOwnerResult = await pool.request()
-      .input("menuId", sql.Int, menuId)
-      .query(`
+    const menuOwnerResult = await pool
+      .request()
+      .input("menuId", sql.Int, menuId).query(`
         SELECT 
           m.userId,
           s.billingCycle,
@@ -563,11 +571,11 @@ export const getMenuCustomAds = async (req: Request, res: Response) => {
 
     const planType = menuOwnerResult.recordset[0].planType;
 
-    let query = '';
+    let query = "";
     let request = pool.request().input("limit", sql.Int, limit);
 
     // If free plan, show global ads instead of custom ads
-    if (planType === 'free') {
+    if (planType === "free") {
       query = `
         SELECT TOP (@limit)
           id, title, titleAr, content, contentAr, imageUrl, linkUrl,
@@ -584,7 +592,7 @@ export const getMenuCustomAds = async (req: Request, res: Response) => {
       query += `
         ORDER BY displayOrder ASC, createdAt DESC
       `;
-    } 
+    }
     // If paid plan, show custom menu ads
     else {
       query = `
