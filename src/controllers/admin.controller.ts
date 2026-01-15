@@ -39,7 +39,7 @@ export async function getAdminStats(
 
     // Trial Users (free plan users)
     const trialUsersResult = await pool.request().query(`
-      SELECT COUNT(*) as trialUsers 
+      SELECT COUNT(DISTINCT s.userId) as trialUsers 
       FROM Subscriptions s
       INNER JOIN Plans p ON s.planId = p.id
       WHERE s.status = 'active' 
@@ -200,9 +200,20 @@ export async function getAllUsers(req: Request, res: Response): Promise<void> {
       request.input(key, inputs[key]);
     });
 
-    const [usersResult, countResult] = await Promise.all([
+    // Get statistics (always get total stats, regardless of filters)
+    const statsQuery = `
+      SELECT 
+        COUNT(*) as totalUsers,
+        SUM(CASE WHEN u.isSuspended = 0 THEN 1 ELSE 0 END) as activeUsers,
+        SUM(CASE WHEN u.isSuspended = 1 THEN 1 ELSE 0 END) as suspendedUsers
+      FROM Users u
+      WHERE u.role = 'user'
+    `;
+
+    const [usersResult, countResult, statsResult] = await Promise.all([
       request.query(query),
       request.query(countQuery),
+      pool.request().query(statsQuery),
     ]);
 
     res.json({
@@ -212,6 +223,11 @@ export async function getAllUsers(req: Request, res: Response): Promise<void> {
         totalPages: Math.ceil(countResult.recordset[0].total / Number(limit)),
         totalItems: countResult.recordset[0].total,
         itemsPerPage: Number(limit),
+      },
+      stats: {
+        totalUsers: statsResult.recordset[0].totalUsers,
+        activeUsers: statsResult.recordset[0].activeUsers,
+        suspendedUsers: statsResult.recordset[0].suspendedUsers,
       },
     });
   } catch (error) {

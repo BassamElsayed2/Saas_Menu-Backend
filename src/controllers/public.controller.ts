@@ -274,6 +274,13 @@ export const getPublicMenu = async (req: Request, res: Response) => {
           isActive: menu.isActive,
           locale: menu.locale,
           ownerPlanType: menu.ownerPlanType || "free", // Add owner's plan type
+          footerLogo: menu.footerLogo,
+          footerDescriptionEn: menu.footerDescriptionEn,
+          footerDescriptionAr: menu.footerDescriptionAr,
+          socialFacebook: menu.socialFacebook,
+          socialInstagram: menu.socialInstagram,
+          socialTwitter: menu.socialTwitter,
+          socialWhatsapp: menu.socialWhatsapp,
           addressEn: menu.addressEn,
           addressAr: menu.addressAr,
           phone: menu.phone,
