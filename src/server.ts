@@ -14,6 +14,7 @@ import { validateJWTSecrets } from "./utils/tokenHelper";
 import { CleanupService } from "./services/cleanup.service";
 import { ensureUploadDirectories } from "./controllers/upload.controller";
 import { startSubscriptionScheduler } from "./services/subscriptionNotificationService";
+import { decryptApiKey } from "./middleware/apiKey.middleware";
 
 // Routes
 import authRoutes from "./routes/auth.routes";
@@ -112,7 +113,7 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-api-key"],
   })
 );
 
@@ -139,6 +140,10 @@ app.use((req, res, next) => {
   logger.info(`${req.method} ${req.url} - ${req.ip}`);
   next();
 });
+
+// ------------------------------------------------------------------
+// API Key Decryption Middleware (decrypts x-api-key header if present)
+app.use(decryptApiKey);
 
 // ------------------------------------------------------------------
 // Health check
