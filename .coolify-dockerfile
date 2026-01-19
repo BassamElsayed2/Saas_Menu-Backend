@@ -1,3 +1,0 @@
-# This file tells Coolify to use Dockerfile instead of Nixpacks
-# Set in Coolify: Build Pack = Dockerfile
-
