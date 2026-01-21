@@ -113,7 +113,7 @@ export const getPublicMenu = async (req: Request, res: Response) => {
     const hasOriginalPrice = existingColumns.includes("originalPrice");
     const hasDiscountPercent = existingColumns.includes("discountPercent");
 
-    // Get categories if Categories table exists
+    // Get categories if Categories table exists with both locales
     let categories: any[] = [];
     if (hasCategoriesTable) {
       const categoriesResult = await pool
@@ -125,16 +125,20 @@ export const getPublicMenu = async (req: Request, res: Response) => {
             c.image,
             c.sortOrder,
             c.isActive,
-            ct.name
+            ct.name,
+            ctAr.name as nameAr,
+            ctEn.name as nameEn
           FROM Categories c
           LEFT JOIN CategoryTranslations ct ON c.id = ct.categoryId AND ct.locale = @locale
+          LEFT JOIN CategoryTranslations ctAr ON c.id = ctAr.categoryId AND ctAr.locale = 'ar'
+          LEFT JOIN CategoryTranslations ctEn ON c.id = ctEn.categoryId AND ctEn.locale = 'en'
           WHERE c.menuId = @menuId AND c.isActive = 1
           ORDER BY c.sortOrder ASC, c.createdAt DESC
         `);
       categories = categoriesResult.recordset;
     }
 
-    // Build SELECT fields for menu items
+    // Build SELECT fields for menu items with both locales
     const selectFields: string[] = [
       "mi.id",
       "mi.price",
@@ -155,19 +159,37 @@ export const getPublicMenu = async (req: Request, res: Response) => {
       selectFields.push("mi.discountPercent");
     }
 
-    selectFields.push("mit.name", "mit.description", "mit.locale");
+    // Get translations for both Arabic and English
+    selectFields.push(
+      "mitAr.name as nameAr",
+      "mitAr.description as descriptionAr",
+      "mitEn.name as nameEn",
+      "mitEn.description as descriptionEn",
+      "mit.name",
+      "mit.description"
+    );
 
-    // Add category name if Categories table exists
+    // Add category names for both locales if Categories table exists
     if (hasCategoriesTable && hasCategoryId) {
-      selectFields.push("ct.name as categoryName");
+      selectFields.push(
+        "ctAr.name as categoryNameAr",
+        "ctEn.name as categoryNameEn",
+        "ct.name as categoryName"
+      );
     }
 
-    // Build JOIN clause
-    let joinClause =
-      "LEFT JOIN MenuItemTranslations mit ON mi.id = mit.menuItemId AND mit.locale = @locale";
+    // Build JOIN clause with both locales
+    let joinClause = `
+      LEFT JOIN MenuItemTranslations mit ON mi.id = mit.menuItemId AND mit.locale = @locale
+      LEFT JOIN MenuItemTranslations mitAr ON mi.id = mitAr.menuItemId AND mitAr.locale = 'ar'
+      LEFT JOIN MenuItemTranslations mitEn ON mi.id = mitEn.menuItemId AND mitEn.locale = 'en'`;
+    
     if (hasCategoriesTable && hasCategoryId) {
-      joinClause +=
-        "\n          LEFT JOIN Categories c ON mi.categoryId = c.id\n          LEFT JOIN CategoryTranslations ct ON c.id = ct.categoryId AND ct.locale = @locale";
+      joinClause += `
+          LEFT JOIN Categories c ON mi.categoryId = c.id
+          LEFT JOIN CategoryTranslations ct ON c.id = ct.categoryId AND ct.locale = @locale
+          LEFT JOIN CategoryTranslations ctAr ON c.id = ctAr.categoryId AND ctAr.locale = 'ar'
+          LEFT JOIN CategoryTranslations ctEn ON c.id = ctEn.categoryId AND ctEn.locale = 'en'`;
     }
 
     // Get menu items with translations

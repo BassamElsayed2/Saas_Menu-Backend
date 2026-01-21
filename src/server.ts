@@ -143,7 +143,20 @@ app.use((req, res, next) => {
 
 // ------------------------------------------------------------------
 // API Key Decryption Middleware (decrypts x-api-key header if present)
-app.use(decryptApiKey);
+// Skip API key check for public routes, health check, and static files
+app.use((req, res, next) => {
+  // Skip API key check for public routes, health check, and static files
+  if (
+    req.path.startsWith("/api/public") || 
+    req.path === "/health" || 
+    req.path.startsWith("/uploads")
+  ) {
+    return next();
+  }
+  
+  // Apply API key middleware for all other routes
+  decryptApiKey(req, res, next);
+});
 
 // ------------------------------------------------------------------
 // Health check
