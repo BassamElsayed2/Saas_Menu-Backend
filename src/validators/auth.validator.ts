@@ -3,8 +3,12 @@ import { z } from 'zod';
 // Phone number regex - يقبل أرقام الهواتف بصيغ مختلفة
 const phoneRegex = /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,9}$/;
 
-// Password regex - يجب أن يحتوي على أرقام وحروف
-const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).+$/;
+// Strong Password regex - يجب أن يحتوي على:
+// - حرف كبير واحد على الأقل
+// - حرف صغير واحد على الأقل
+// - رقم واحد على الأقل
+// - رمز خاص واحد على الأقل
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_+=\-\[\]{};:'",.<>\/\\|`~])[A-Za-z\d@$!%*?&#^()_+=\-\[\]{};:'",.<>\/\\|`~]{8,}$/;
 
 /**
  * Schema for user signup validation
@@ -25,7 +29,7 @@ export const signupSchema = z.object({
     .min(8, 'Password must be at least 8 characters')
     .regex(
       passwordRegex,
-      'Password must contain both letters and numbers'
+      'Password must contain: uppercase letter, lowercase letter, number, and special character (@$!%*?&#...)'
     ),
   
   name: z
@@ -54,13 +58,13 @@ export const signupSchema = z.object({
 export const checkAvailabilitySchema = z.object({
   email: z
     .string()
-    .min(1, 'Email is required')
-    .optional(),
+    .optional()
+    .transform(val => val || undefined),
   
   phoneNumber: z
     .string()
-    .min(1, 'Phone number is required')
-    .optional(),
+    .optional()
+    .transform(val => val || undefined),
 }).refine(
   (data) => data.email || data.phoneNumber,
   {
