@@ -17,13 +17,16 @@ export async function getUserMenus(req: Request, res: Response): Promise<void> {
 
     const result = await pool
       .request()
-      .input("userId", sql.Int, userId)
-      .input("locale", sql.NVarChar, locale as string).query(`
+      .input("userId", sql.Int, userId).query(`
         SELECT 
-          m.id, m.userId, m.slug, m.logo, m.theme, m.isActive, m.createdAt,
-          mt.name, mt.description
+          m.id, m.userId, m.slug, m.logo, m.theme, m.isActive, m.createdAt, m.updatedAt,
+          mtAr.name as nameAr, 
+          mtAr.description as descriptionAr,
+          mtEn.name as nameEn,
+          mtEn.description as descriptionEn
         FROM Menus m
-        LEFT JOIN MenuTranslations mt ON m.id = mt.menuId AND mt.locale = @locale
+        LEFT JOIN MenuTranslations mtAr ON m.id = mtAr.menuId AND mtAr.locale = 'ar'
+        LEFT JOIN MenuTranslations mtEn ON m.id = mtEn.menuId AND mtEn.locale = 'en'
         WHERE m.userId = @userId
         ORDER BY m.createdAt DESC
       `);

@@ -34,7 +34,6 @@ export function decryptApiKey(req: Request, res: Response, next: NextFunction) {
 
         try {
             const decryptedData = decryptDataApi(apiKey, encryptionKey);
-            console.log("decryptedData", decryptedData);
             const match = decryptedData.match(/\/\/\/([\d.]+)/);
 
             if (!match) {

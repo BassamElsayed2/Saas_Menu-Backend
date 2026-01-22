@@ -4,6 +4,7 @@ import * as menuController from "../controllers/menu.controller";
 import { validate } from "../middleware/validation";
 import { requireAuth } from "../middleware/auth.middleware";
 import { checkMenuLimit } from "../middleware/planLimits";
+import { uploadMemoryStorage } from "../controllers/upload.controller";
 import menuItemRoutes from "./menuItem.routes";
 import branchRoutes from "./branch.routes";
 import menuCustomizationRoutes from "./menuCustomization.routes";
