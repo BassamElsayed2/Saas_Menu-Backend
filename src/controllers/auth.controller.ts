@@ -33,7 +33,7 @@ export async function checkAvailability(
     }
 
     const pool = await getPool();
-    const checks: { email?: boolean; phoneNumber?: boolean } = {};
+    let isAvailable = false;
 
     // Check email if provided
     if (email) {
@@ -42,7 +42,7 @@ export async function checkAvailability(
         .input("email", sql.NVarChar, (email as string).toLowerCase())
         .query("SELECT id FROM Users WHERE email = @email");
 
-      checks.email = emailResult.recordset.length === 0; // true if available
+      isAvailable = emailResult.recordset.length === 0; // true if available
     }
 
     // Check phone number if provided
@@ -52,16 +52,14 @@ export async function checkAvailability(
         .input("phoneNumber", sql.NVarChar, phoneNumber as string)
         .query("SELECT id FROM Users WHERE phoneNumber = @phoneNumber");
 
-      checks.phoneNumber = phoneResult.recordset.length === 0; // true if available
+      isAvailable = phoneResult.recordset.length === 0; // true if available
     }
 
     res.json({
-      available: checks,
-      message: Object.entries(checks)
-        .map(
-          ([key, value]) => `${key}: ${value ? "available" : "already exists"}`
-        )
-        .join(", "),
+      isAvailable,
+      message: isAvailable
+        ? `${email ? "Email" : "Phone number"} is available`
+        : `${email ? "Email" : "Phone number"} is already in use`,
     });
   } catch (error) {
     logger.error("Check availability error:", error);
