@@ -125,6 +125,62 @@ export const getMenuAds = async (req: Request, res: Response) => {
   }
 };
 
+// Get menu ads by slug
+export const getMenuAdsBySlug = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { slug } = req.params;
+
+    const pool = await getPool();
+
+    // First, get menu by slug and verify it belongs to user
+    const menuCheck = await pool
+      .request()
+      .input("slug", sql.NVarChar, slug)
+      .input("userId", sql.Int, userId)
+      .query(`
+        SELECT id FROM Menus WHERE slug = @slug AND userId = @userId
+      `);
+
+    if (menuCheck.recordset.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Menu not found or you don't have permission",
+      });
+    }
+
+    const menuId = menuCheck.recordset[0].id;
+
+    // Get menu ads
+    const result = await pool
+      .request()
+      .input("menuId", sql.Int, menuId)
+      .query(`
+        SELECT 
+          id, title, titleAr, content, contentAr, imageUrl, linkUrl,
+          position, displayOrder, isActive, adType, menuId,
+          impressionCount, clickCount, createdAt
+        FROM Ads
+        WHERE menuId = @menuId AND adType = 'menu'
+        ORDER BY displayOrder ASC, createdAt DESC
+      `);
+
+    res.json({
+      success: true,
+      data: {
+        ads: result.recordset,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error fetching menu ads by slug:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch ads",
+      error: error.message,
+    });
+  }
+};
+
 // Update ad
 export const updateAd = async (req: Request, res: Response) => {
   try {

@@ -7,6 +7,7 @@ import { checkMenuLimit } from "../middleware/planLimits";
 import menuItemRoutes from "./menuItem.routes";
 import branchRoutes from "./branch.routes";
 import menuCustomizationRoutes from "./menuCustomization.routes";
+import { getMenuAdsBySlug } from "../controllers/ads.controller";
 
 const router = Router();
 
@@ -38,9 +39,16 @@ router.post(
     body("descriptionEn").optional().isString().trim().isLength({ max: 1000 }),
     body("slug").optional().isString().trim().isLength({ max: 200 }),
     body("logo").optional().isString().isLength({ max: 500 }),
-    body("theme").optional().isIn(["default", "neon", "coffee", "template1"]),
+    body("theme").optional().isIn(["default", "neon", "coffee", "sky"]),
   ]),
   menuController.createMenu
+);
+
+// GET /api/menus/:slug/ads - Get menu ads by slug (must be before /:id route)
+router.get(
+  "/:slug/ads",
+  [param("slug").notEmpty().trim()],
+  getMenuAdsBySlug
 );
 
 // GET /api/menus/:id - Get menu by ID
@@ -73,7 +81,7 @@ router.put(
       .optional({ nullable: true, checkFalsy: true })
       .isString()
       .isLength({ max: 500 }),
-    body("theme").optional().isIn(["default", "neon", "coffee", "template1"]),
+    body("theme").optional().isIn(["default", "neon", "coffee", "sky"]),
     body("currency").optional().isString().isLength({ min: 3, max: 3 }),
     body("isActive").optional().isBoolean(),
     body("addressEn")

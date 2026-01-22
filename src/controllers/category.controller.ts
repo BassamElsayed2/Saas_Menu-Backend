@@ -122,7 +122,10 @@ export async function createCategory(
   try {
     const userId = req.user!.userId;
     const { menuId } = req.params;
-    const { nameAr, nameEn, image, sortOrder = 0 } = req.body;
+    const { nameAr, nameEn, imageUrl, image, sortOrder = 0 } = req.body;
+
+    // Support both 'imageUrl' and 'image' for backward compatibility
+    const categoryImage = imageUrl || image;
 
     // Validate required fields
     if (!nameAr || !nameEn) {
@@ -150,7 +153,7 @@ export async function createCategory(
     const categoryResult = await pool
       .request()
       .input("menuId", sql.Int, parseInt(menuId))
-      .input("image", sql.NVarChar, image || null)
+      .input("image", sql.NVarChar, categoryImage || null)
       .input("sortOrder", sql.Int, sortOrder).query(`
         INSERT INTO Categories (menuId, image, sortOrder)
         VALUES (@menuId, @image, @sortOrder);
@@ -179,9 +182,30 @@ export async function createCategory(
         VALUES (@categoryId, @locale, @name)
       `);
 
+    // Get the created category with image to return
+    const createdCategory = await pool
+      .request()
+      .input("categoryId", sql.Int, categoryId)
+      .input("menuId", sql.Int, parseInt(menuId)).query(`
+        SELECT 
+          c.id,
+          c.menuId,
+          c.image,
+          c.sortOrder,
+          c.isActive,
+          c.createdAt,
+          ar.name as nameAr,
+          en.name as nameEn
+        FROM Categories c
+        LEFT JOIN CategoryTranslations ar ON c.id = ar.categoryId AND ar.locale = 'ar'
+        LEFT JOIN CategoryTranslations en ON c.id = en.categoryId AND en.locale = 'en'
+        WHERE c.id = @categoryId AND c.menuId = @menuId
+      `);
+
     res.status(201).json({
       message: "Category created successfully",
       categoryId,
+      category: createdCategory.recordset[0],
     });
   } catch (error) {
     logger.error("Create category error:", error);
@@ -197,7 +221,10 @@ export async function updateCategory(
   try {
     const userId = req.user!.userId;
     const { menuId, categoryId } = req.params;
-    const { nameAr, nameEn, image, sortOrder, isActive } = req.body;
+    const { nameAr, nameEn, imageUrl, image, sortOrder, isActive } = req.body;
+
+    // Support both 'imageUrl' and 'image' for backward compatibility
+    const categoryImage = imageUrl !== undefined ? imageUrl : image;
 
     const pool = await getPool();
 
@@ -233,9 +260,9 @@ export async function updateCategory(
       .request()
       .input("categoryId", sql.Int, parseInt(categoryId));
 
-    if (image !== undefined) {
+    if (categoryImage !== undefined) {
       updates.push("image = @image");
-      request.input("image", sql.NVarChar, image || null);
+      request.input("image", sql.NVarChar, categoryImage || null);
     }
 
     if (sortOrder !== undefined) {
