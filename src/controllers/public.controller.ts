@@ -282,6 +282,47 @@ export const getPublicMenu = async (req: Request, res: Response) => {
         ? customizationsResult.recordset[0]
         : null;
 
+    // Get menu ads based on owner's plan type
+    const planType = menu.ownerPlanType && menu.ownerPlanType !== "free" ? "paid" : "free";
+    let ads: any[] = [];
+
+    if (planType === "free") {
+      // If free plan, show global ads
+      const globalAdsResult = await pool.request().query(`
+        SELECT TOP (10)
+          id, title, titleAr, content, contentAr, imageUrl, linkUrl,
+          position, displayOrder
+        FROM Ads
+        WHERE adType = 'global' AND isActive = 1
+        ORDER BY displayOrder ASC, createdAt DESC
+      `);
+      ads = globalAdsResult.recordset;
+    } else {
+      // If paid plan, show custom menu ads
+      const menuAdsResult = await pool
+        .request()
+        .input("menuId", sql.Int, menu.id)
+        .query(`
+          SELECT TOP (10)
+            id, title, titleAr, content, contentAr, imageUrl, linkUrl,
+            position, displayOrder
+          FROM Ads
+          WHERE menuId = @menuId AND adType = 'menu' AND isActive = 1
+          ORDER BY displayOrder ASC, createdAt DESC
+        `);
+      ads = menuAdsResult.recordset;
+    }
+
+    // Increment impression count for returned ads
+    if (ads.length > 0) {
+      const adIds = ads.map((ad: any) => ad.id);
+      await pool.request().query(`
+        UPDATE Ads 
+        SET impressionCount = impressionCount + 1 
+        WHERE id IN (${adIds.join(",")})
+      `);
+    }
+
     res.json({
       success: true,
       data: {
@@ -319,6 +360,7 @@ export const getPublicMenu = async (req: Request, res: Response) => {
             : 0,
           total: rating.totalRatings,
         },
+        ads: ads, // Add ads array
       },
     });
   } catch (error: any) {

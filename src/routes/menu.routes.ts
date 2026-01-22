@@ -7,7 +7,6 @@ import { checkMenuLimit } from "../middleware/planLimits";
 import menuItemRoutes from "./menuItem.routes";
 import branchRoutes from "./branch.routes";
 import menuCustomizationRoutes from "./menuCustomization.routes";
-import { getMenuAdsBySlug } from "../controllers/ads.controller";
 
 const router = Router();
 
@@ -42,13 +41,6 @@ router.post(
     body("theme").optional().isIn(["default", "neon", "coffee", "sky"]),
   ]),
   menuController.createMenu
-);
-
-// GET /api/menus/:slug/ads - Get menu ads by slug (must be before /:id route)
-router.get(
-  "/:slug/ads",
-  [param("slug").notEmpty().trim()],
-  getMenuAdsBySlug
 );
 
 // GET /api/menus/:id - Get menu by ID
