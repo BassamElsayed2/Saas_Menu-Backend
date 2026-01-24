@@ -1,7 +1,7 @@
 {
   "name": "saas-menu-backend",
   "version": "1.0.0",
-  "description": "Backend API for SaaS Menu Platform",
+  "description": "Backend API for ensmenu Platform",
   "main": "dist/server.js",
   "engines": {
     "node": ">=20.0.0",

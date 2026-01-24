@@ -1,4 +1,4 @@
--- SaaS Menu Platform Database Schema
+-- ensmenu Platform Database Schema
 -- SQL Server
 
 -- Drop existing tables if they exist (for development only)

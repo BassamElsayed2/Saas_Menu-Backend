@@ -13,7 +13,7 @@ interface EmailOptions {
 async function sendEmail(options: EmailOptions): Promise<boolean> {
   try {
     await transporter.sendMail({
-      from: `"SaaS Menu" <${FROM_EMAIL}>`,
+      from: `"ensmenu" <${FROM_EMAIL}>`,
       ...options,
     });
     logger.info(`Email sent to ${options.to}: ${options.subject}`);
@@ -95,13 +95,13 @@ function emailTemplate(content: string, isArabic: boolean = false): string {
 <body>
     <div class="container">
         <div class="header">
-            <h1>SaaS Menu</h1>
+            <h1>ensmenu</h1>
         </div>
         <div class="content">
             ${content}
         </div>
         <div class="footer">
-            <p>${isArabic ? '© 2024 SaaS Menu. جميع الحقوق محفوظة.' : '© 2024 SaaS Menu. All rights reserved.'}</p>
+            <p>${isArabic ? '© 2024 ensmenu. جميع الحقوق محفوظة.' : '© 2024 ensmenu. All rights reserved.'}</p>
             <p>${isArabic ? 'إذا لم تطلب هذا البريد، يرجى تجاهله.' : 'If you didn\'t request this email, please ignore it.'}</p>
         </div>
     </div>
@@ -120,7 +120,7 @@ export async function sendWelcomeEmail(
   
   const content = isArabic ? `
     <h2>مرحباً ${name}! 👋</h2>
-    <p>نشكرك على انضمامك إلى <strong>SaaS Menu</strong> - منصتك الرقمية لإنشاء منيو احترافي لمطعمك.</p>
+    <p>نشكرك على انضمامك إلى <strong>ensmenu</strong> - منصتك الرقمية لإنشاء منيو احترافي لمطعمك.</p>
     <p>يمكنك الآن البدء في إنشاء منيو رقمي جميل وعرض منتجاتك بشكل احترافي للعملاء.</p>
     <div class="divider"></div>
     <h3>خطواتك التالية:</h3>
@@ -133,7 +133,7 @@ export async function sendWelcomeEmail(
     <p>نتمنى لك تجربة رائعة!</p>
   ` : `
     <h2>Welcome ${name}! 👋</h2>
-    <p>Thank you for joining <strong>SaaS Menu</strong> - your digital platform to create professional menus for your restaurant.</p>
+    <p>Thank you for joining <strong>ensmenu</strong> - your digital platform to create professional menus for your restaurant.</p>
     <p>You can now start creating a beautiful digital menu and showcase your products professionally to customers.</p>
     <div class="divider"></div>
     <h3>Your next steps:</h3>
@@ -148,7 +148,7 @@ export async function sendWelcomeEmail(
 
   return sendEmail({
     to,
-    subject: isArabic ? 'مرحباً بك في SaaS Menu!' : 'Welcome to SaaS Menu!',
+    subject: isArabic ? 'مرحباً بك في ensmenu!' : 'Welcome to ensmenu!',
     html: emailTemplate(content, isArabic),
   });
 }
@@ -165,7 +165,7 @@ export async function sendVerificationEmail(
 
   const content = isArabic ? `
     <h2>مرحباً ${name}،</h2>
-    <p>شكراً لتسجيلك في <strong>SaaS Menu</strong>!</p>
+    <p>شكراً لتسجيلك في <strong>ensmenu</strong>!</p>
     <p>لإكمال تسجيلك وتفعيل حسابك، يرجى تأكيد بريدك الإلكتروني بالنقر على الزر أدناه:</p>
     <center>
         <a href="${verificationLink}" class="button">تأكيد البريد الإلكتروني</a>
@@ -180,7 +180,7 @@ export async function sendVerificationEmail(
     </p>
   ` : `
     <h2>Hello ${name},</h2>
-    <p>Thank you for signing up for <strong>SaaS Menu</strong>!</p>
+    <p>Thank you for signing up for <strong>ensmenu</strong>!</p>
     <p>To complete your registration and activate your account, please verify your email by clicking the button below:</p>
     <center>
         <a href="${verificationLink}" class="button">Verify Email</a>
@@ -214,7 +214,7 @@ export async function sendPasswordResetEmail(
 
   const content = isArabic ? `
     <h2>مرحباً ${name}،</h2>
-    <p>تلقينا طلباً لإعادة تعيين كلمة مرور حسابك في <strong>SaaS Menu</strong>.</p>
+    <p>تلقينا طلباً لإعادة تعيين كلمة مرور حسابك في <strong>ensmenu</strong>.</p>
     <p>لإنشاء كلمة مرور جديدة، انقر على الزر أدناه:</p>
     <center>
         <a href="${resetLink}" class="button">إعادة تعيين كلمة المرور</a>
@@ -232,7 +232,7 @@ export async function sendPasswordResetEmail(
     </p>
   ` : `
     <h2>Hello ${name},</h2>
-    <p>We received a request to reset your password for your <strong>SaaS Menu</strong> account.</p>
+    <p>We received a request to reset your password for your <strong>ensmenu</strong> account.</p>
     <p>To create a new password, click the button below:</p>
     <center>
         <a href="${resetLink}" class="button">Reset Password</a>
@@ -267,14 +267,14 @@ export async function sendPasswordChangedEmail(
 
   const content = isArabic ? `
     <h2>مرحباً ${name}،</h2>
-    <p>تم تغيير كلمة مرور حسابك في <strong>SaaS Menu</strong> بنجاح.</p>
+    <p>تم تغيير كلمة مرور حسابك في <strong>ensmenu</strong> بنجاح.</p>
     <p>إذا لم تقم بهذا التغيير، يرجى الاتصال بدعمنا فوراً.</p>
     <div class="divider"></div>
     <p style="color: #28a745; font-weight: bold;">✓ تم تأمين حسابك</p>
     <p>تاريخ التغيير: ${new Date().toLocaleString('ar-EG')}</p>
   ` : `
     <h2>Hello ${name},</h2>
-    <p>Your <strong>SaaS Menu</strong> account password has been successfully changed.</p>
+    <p>Your <strong>ensmenu</strong> account password has been successfully changed.</p>
     <p>If you didn't make this change, please contact our support immediately.</p>
     <div class="divider"></div>
     <p style="color: #28a745; font-weight: bold;">✓ Your account is secure</p>
