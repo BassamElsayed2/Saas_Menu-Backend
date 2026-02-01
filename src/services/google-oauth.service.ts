@@ -25,9 +25,61 @@ export interface GoogleUserInfo {
   family_name?: string;
 }
 
+const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
+
 export class GoogleOAuthService {
   /**
-   * Verify Google OAuth token and get user info
+   * Get user info from OAuth authorization code (useGoogleLogin flow: 'auth-code')
+   * Exchanges code for tokens then fetches user info.
+   */
+  static async getUserInfoFromCode(code: string, redirectUri: string): Promise<GoogleUserInfo> {
+    const { tokens } = await client.getToken({ code, redirect_uri: redirectUri });
+    if (!tokens.access_token) {
+      throw new Error('Invalid Google token');
+    }
+    return this.getUserInfoFromAccessToken(tokens.access_token);
+  }
+
+  /**
+   * Get user info from OAuth access_token (useGoogleLogin flow: 'implicit')
+   */
+  static async getUserInfoFromAccessToken(accessToken: string): Promise<GoogleUserInfo> {
+    try {
+      const response = await fetch(`${GOOGLE_USERINFO_URL}?alt=json`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        logger.error('Google userinfo API error', {
+          status: response.status,
+          body: payload,
+        });
+        throw new Error(payload.error?.message || 'Invalid Google access token');
+      }
+
+      if (!payload.sub) {
+        logger.error('Google userinfo missing sub', { payload });
+        throw new Error('Invalid Google token');
+      }
+
+      return {
+        sub: payload.sub,
+        email: payload.email ?? '',
+        email_verified: payload.email_verified ?? false,
+        name: payload.name ?? payload.email ?? '',
+        picture: payload.picture,
+        given_name: payload.given_name,
+        family_name: payload.family_name,
+      };
+    } catch (error: any) {
+      logger.error('Google userinfo fetch error:', error?.message || error);
+      throw new Error(error.message || 'Invalid Google token');
+    }
+  }
+
+  /**
+   * Verify Google ID token (credential) and get user info
    */
   static async verifyGoogleToken(token: string): Promise<GoogleUserInfo> {
     try {
