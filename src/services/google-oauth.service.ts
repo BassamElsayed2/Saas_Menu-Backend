@@ -27,6 +27,18 @@ export interface GoogleUserInfo {
 
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
 
+/** Response shape from Google userinfo API */
+interface GoogleUserinfoResponse {
+  sub?: string;
+  email?: string;
+  email_verified?: boolean;
+  name?: string;
+  picture?: string;
+  given_name?: string;
+  family_name?: string;
+  error?: { message?: string };
+}
+
 export class GoogleOAuthService {
   /**
    * Get user info from OAuth authorization code (useGoogleLogin flow: 'auth-code')
@@ -48,7 +60,8 @@ export class GoogleOAuthService {
       const response = await fetch(`${GOOGLE_USERINFO_URL}?alt=json`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      const payload = await response.json().catch(() => ({}));
+      const raw = await response.json().catch(() => ({}));
+      const payload: GoogleUserinfoResponse = typeof raw === 'object' && raw !== null ? raw : {};
 
       if (!response.ok) {
         logger.error('Google userinfo API error', {
