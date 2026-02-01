@@ -11,3 +11,8 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
+    volumes:
+      - uploads_data:/app/uploads
+
+volumes:
+  uploads_data:
