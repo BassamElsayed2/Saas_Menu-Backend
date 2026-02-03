@@ -193,7 +193,7 @@ export async function login(req: Request, res: Response): Promise<void> {
       );
       await LoginAttemptsService.checkAndLockAccount(email);
 
-      res.status(401).json({
+      res.status(405).json({
         error:
           "البريد الإلكتروني غير مسجل في النظام. يرجى التحقق من البريد الإلكتروني والمحاولة مرة أخرى.",
         errorType: "EMAIL_NOT_FOUND",
@@ -223,7 +223,7 @@ export async function login(req: Request, res: Response): Promise<void> {
           lockedUntil: lockResult.lockedUntil,
         });
       } else {
-        res.status(401).json({
+        res.status(405).json({
           error:
             "كلمة المرور غير صحيحة. يرجى التحقق من كلمة المرور والمحاولة مرة أخرى.",
           errorType: "INVALID_PASSWORD",

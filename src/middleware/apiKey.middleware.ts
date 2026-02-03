@@ -5,11 +5,40 @@ import { logger } from "../utils/logger";
 require('dotenv').config();
 
 /**
+ * List of public routes that don't require API key
+ */
+const publicRoutes = [
+    '/health',
+    '/api/auth/login',
+    '/api/auth/signup',
+    '/api/auth/check-availability',
+    '/api/auth/verify-email',
+    '/api/auth/resend-verification',
+    '/api/auth/forgot-password',
+    '/api/auth/reset-password',
+    '/api/auth/refresh',
+    '/api/public',
+];
+
+/**
+ * Check if the current route is a public route
+ */
+function isPublicRoute(path: string): boolean {
+    return publicRoutes.some(route => path.startsWith(route));
+}
+
+/**
  * Middleware to decrypt x-api-key header if present
  * Decrypts the API key using ENCRYPTION_KEY from environment variables
  * Logs the decrypted data for debugging
+ * Skips validation for public routes (login, signup, etc.)
  */
 export function decryptApiKey(req: Request, res: Response, next: NextFunction) {
+    // Skip API key validation for public routes
+    if (isPublicRoute(req.path)) {
+        return next();
+    }
+
     const apiKey = req.headers["x-api-key"] as string | undefined;
 
     // Require x-api-key header
@@ -18,14 +47,14 @@ export function decryptApiKey(req: Request, res: Response, next: NextFunction) {
             path: req.path,
             method: req.method,
         });
-        return res.status(401).json({ error: "Missing x-api-key header", message: "Missing x-api-key header" });
+        return res.status(401).json({ error: "No token provided", message: "No token provided" });
     }
 
     // If x-api-key is present, decrypt it
     if (apiKey) {
         const encryptionKey = process.env.ENCRYPTION_KEY;
 
-        console.log("encryptionKey", encryptionKey);
+        // console.log("encryptionKey", encryptionKey);
 
         if (!encryptionKey) {
             logger.warn("x-api-key header present but ENCRYPTION_KEY not configured");
