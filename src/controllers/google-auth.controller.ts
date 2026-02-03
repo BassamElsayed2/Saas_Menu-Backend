@@ -5,21 +5,31 @@ import { LoginAttemptsService } from '../services/loginAttempts.service';
 
 /**
  * Handle Google OAuth login/signup
- * Receives Google ID token from frontend
+ * Accepts: token (ID token) | access_token (implicit) | code + redirect_uri (auth-code)
  */
 export async function googleAuth(req: Request, res: Response): Promise<void> {
   try {
-    const { token, locale = 'ar' } = req.body;
+    const { token, access_token: accessToken, code, redirect_uri: redirectUri, locale = 'ar' } = req.body;
     const ipAddress = (req.ip || req.socket.remoteAddress || 'unknown').replace('::ffff:', '');
     const userAgent = req.headers['user-agent'];
 
-    if (!token) {
-      res.status(400).json({ error: 'Google token is required' });
+    if (!token && !accessToken && !code) {
+      res.status(400).json({ error: 'Google token, access_token, or code is required' });
       return;
     }
 
-    // Verify Google token and get user info
-    const googleUserInfo = await GoogleOAuthService.verifyGoogleToken(token);
+    let googleUserInfo;
+    if (code) {
+      if (!redirectUri) {
+        res.status(400).json({ error: 'redirect_uri is required when using code' });
+        return;
+      }
+      googleUserInfo = await GoogleOAuthService.getUserInfoFromCode(code, redirectUri);
+    } else if (accessToken) {
+      googleUserInfo = await GoogleOAuthService.getUserInfoFromAccessToken(accessToken);
+    } else {
+      googleUserInfo = await GoogleOAuthService.verifyGoogleToken(token);
+    }
 
     // Check if account is locked (for existing email-based accounts)
     const lockStatus = await LoginAttemptsService.isAccountLocked(googleUserInfo.email);
