@@ -426,6 +426,9 @@ export async function forgotPassword(
       .query("SELECT * FROM Users WHERE email = @email");
 
     if (userResult.recordset.length === 0) {
+      logger.info(
+        "Forgot password requested for non-existing email"
+      );
       // Don't reveal if email exists
       res.json({ message: "If the email exists, a reset link will be sent" });
       return;
@@ -453,12 +456,18 @@ export async function forgotPassword(
       `);
 
     // Send email
-    await sendPasswordResetEmail(
+    const emailSent = await sendPasswordResetEmail(
       email,
       user.name,
       token,
       locale as "ar" | "en"
     );
+
+    if (!emailSent) {
+      logger.error("Forgot password email dispatch failed");
+    } else {
+      logger.info("Forgot password email dispatched successfully");
+    }
 
     res.json({ message: "If the email exists, a reset link will be sent" });
   } catch (error) {

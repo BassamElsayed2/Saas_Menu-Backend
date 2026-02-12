@@ -64,7 +64,8 @@ export const passwordResetLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => process.env.NODE_ENV === 'test',
+  // Keep protection in production, but don't block local development/testing.
+  skip: (req) => process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development',
 });
 
 // Email verification limiter
